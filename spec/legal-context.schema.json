@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.legalcontextprotocol.org/schema/legal-context.schema.json",
+  "title": "Legal Context Protocol Discovery Document",
+  "description": "Schema for /.well-known/legal-context.json — the discovery document defined by the Legal Context Protocol (LCP) v1.0.0-draft.",
+  "type": "object",
+  "required": ["terms"],
+  "properties": {
+    "terms": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://",
+      "description": "Absolute HTTPS URL of the legal terms document. MUST return a standalone, downloadable file."
+    },
+    "termsFormat": {
+      "type": "string",
+      "description": "The format or schema of the terms document. Signals to agents whether the terms are machine-readable before fetching.",
+      "examples": [
+        "agentic-transaction-record-v1",
+        "pdf",
+        "markdown",
+        "html",
+        "plain"
+      ]
+    },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^0x[0-9a-f]{64}$",
+      "description": "SHA-256 hash of the terms document, 0x-prefixed lowercase hex (66 characters)."
+    },
+    "hashAlgorithm": {
+      "type": "string",
+      "default": "sha256",
+      "description": "Hash algorithm used. Defaults to 'sha256' if contentHash is present."
+    },
+    "acceptanceRequired": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, counterparties MUST explicitly accept terms before transacting."
+    },
+    "disputeResolution": {
+      "type": "object",
+      "description": "Dispute resolution process.",
+      "properties": {
+        "method": {
+          "type": "string",
+          "description": "The dispute resolution method (e.g., 'AAA Commercial Arbitration Rules')."
+        },
+        "jurisdiction": {
+          "type": "string",
+          "description": "Governing jurisdiction (e.g., 'New York, USA')."
+        },
+        "contact": {
+          "type": "string",
+          "description": "Contact for dispute filing (email or URL)."
+        },
+        "clauseId": {
+          "type": "string",
+          "pattern": "^sha256:0x[0-9a-f]{64}$",
+          "description": "Content-addressed identifier of the dispute resolution clause. Format: sha256:0x<hex>."
+        },
+        "source": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL where the dispute resolution clause text can be retrieved."
+        },
+        "catalog": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the dispute resolution provider's service catalog for programmatic clause generation."
+        }
+      },
+      "additionalProperties": true
+    },
+    "returns": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL of a returns or claims API/process."
+    },
+    "contact": {
+      "type": "object",
+      "description": "Contact information for the service.",
+      "properties": {
+        "legal": {
+          "type": "string",
+          "description": "Legal department contact."
+        },
+        "technical": {
+          "type": "string",
+          "description": "Technical support contact."
+        }
+      },
+      "additionalProperties": true
+    },
+    "api": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL of a legal context API providing richer functionality (record management, verification, dispute filing)."
+    }
+  },
+  "additionalProperties": true
+}

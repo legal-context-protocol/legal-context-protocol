@@ -1,0 +1,20 @@
+{
+  "terms": "https://example.com/terms/v3.json",
+  "termsFormat": "agentic-transaction-record-v1",
+  "contentHash": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+  "acceptanceRequired": true,
+  "disputeResolution": {
+    "method": "AAA Commercial Arbitration Rules",
+    "jurisdiction": "New York, USA",
+    "contact": "disputes@example.com",
+    "clauseId": "sha256:0x9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "source": "https://adr.org/clauses/commercial-arbitration",
+    "catalog": "https://adr.org/.well-known/dispute-services.json"
+  },
+  "returns": "https://example.com/api/returns",
+  "contact": {
+    "legal": "legal@example.com",
+    "technical": "api-support@example.com"
+  },
+  "api": "https://api.integraledger.net/v1/records/0xabcdef1234567890"
+}
