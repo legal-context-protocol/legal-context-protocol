@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://www.legalcontextprotocol.org/schema/legal-context.schema.json",
   "title": "Legal Context Protocol Discovery Document",
-  "description": "Schema for /.well-known/legal-context.json — the discovery document defined by the Legal Context Protocol (LCP) v1.0.0-draft.",
+  "description": "Schema for /.well-known/legal-context.json — the discovery document defined by the Legal Context Protocol (LCP) v1.1.",
   "type": "object",
   "required": ["terms"],
   "properties": {

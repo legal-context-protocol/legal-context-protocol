@@ -75,19 +75,24 @@ Each level is independently valuable. A service can implement any level without 
 
 ## Protocol Integration
 
-LCP integrates with every major agentic commerce protocol via existing extension mechanisms:
+LCP integrates with the major agentic commerce and authorization protocols in two tiers: those that work today against stock, unmodified protocols using existing extension surfaces, and those that require upstream specification changes. See the specification's Section 7 for per-protocol detail.
 
-| Protocol | Integration Mechanism |
-|----------|----------------------|
-| MPP | `legalContext` field in 402 challenges and receipts |
-| ACP | Formal extension via `capabilities.extensions[]` |
-| x402 | `extensions.legalContext` in PaymentRequired responses |
-| UCP | `com.integra.legal-context` schema extension |
-| Visa TAP | `legalContext` in signed request body |
-| A2A | Agent Card extensions and task metadata |
-| MCP | Tool annotations for legally significant actions |
-| AP2 | Alongside mandates in transport metadata |
-| Mastercard VI | Legal constraints in Layer 2 credentials |
+| Protocol | Integration surface | Tier |
+|----------|---------------------|------|
+| MPP | LCP fields inside the HMAC-covered `request.methodDetails` body | A — Available today |
+| MPP | First-class `legalContext` on `WWW-Authenticate: Payment` header or `Payment-Receipt` | B — Proposed |
+| x402 | `accepts[].extra` per-requirement block and top-level `extensions` in v2 | A — Available today |
+| x402 | First-class `legalContext` field on `PAYMENT-RESPONSE` receipts | B — Proposed |
+| Stellar (in-band binding) | CAP-67 muxed destination whose `mux_id` encodes the ATR hash | A — Available today |
+| ACP | Freeform session metadata / `links` array | A — Available today |
+| ACP | Formal `capabilities.extensions[]` registration (SEP) | B — Proposed |
+| UCP | `allOf` schema extension with reverse-domain naming | B — Proposed |
+| A2A | Task metadata (arbitrary) and Agent Card `extensions` (§4.6) | A — Available today |
+| MCP | Tool annotations and description field | A — Available today |
+| Visa TAP | Field inside an existing signed object, or a sibling with its own signature quartet | B — Proposed |
+| AP2 | Alongside mandates in transport metadata | A — Available today |
+| AP2 | Embedded as a field within a signed mandate | B — Proposed |
+| Mastercard Verifiable Intent | Custom Layer 2 constraint type (URN / reverse-domain namespaced) | A — Available today |
 
 ## Governance
 

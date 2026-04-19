@@ -1,7 +1,7 @@
 # Legal Context Protocol
 
-**Version:** 0.1-draft
-**Date:** March 30, 2026
+**Version:** 1.1
+**Date:** April 19, 2026
 **Authors:** David Fisher (Integra Ledger), David Berger
 **Status:** Draft
 **License:** Apache 2.0
@@ -18,7 +18,11 @@ For the conceptual framework motivating this standard — why agentic commerce r
 
 ## Status of This Document
 
-This is a draft specification for community review. The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in [RFC 2119].
+This is a draft specification released for community review. A reference implementation of
+the Stellar in-band binding mechanism described in Section 7 is live on Stellar mainnet; see
+Appendix A. The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
+"SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as
+described in [RFC 2119].
 
 ---
 
@@ -36,6 +40,8 @@ This is a draft specification for community review. The key words "MUST", "MUST 
 10. [IANA Considerations](#10-iana-considerations)
 11. [Security Considerations](#11-security-considerations)
 12. [References](#12-references)
+
+_Appendices:_ A (Relationship to Reference Implementations), B (Comparison to Existing Protocol Standards).
 
 ---
 
@@ -374,13 +380,24 @@ For persistent private terms (Level 4). See Section 5.2 for the hash-then-encryp
 
 *This section is advisory.*
 
-This section describes how legal context references can be embedded in existing agentic commerce protocols. No protocol requires core specification changes. All integrations use existing extension mechanisms.
+This section describes how legal context references can be embedded in existing agentic commerce protocols. The integrations fall into two tiers:
+
+- **Tier A — Available today.** Mechanisms that work against stock, unmodified protocols by using extension fields those protocols already expose, custom HTTP headers, or chain primitives the underlying rail already supports. No upstream coordination required.
+- **Tier B — Proposed extensions.** Mechanisms that require upstream specification changes (HMAC-covered challenge parameters, first-class receipt fields, integration into closed-schema signed envelopes). These are proposals seeking upstream acceptance; they tighten binding but are not prerequisites for adoption.
+
+Each per-protocol subsection in §7.3 is labeled with its tier. Deployments can adopt Tier A
+today, without any cooperation from the protocols named below; Tier B describes the forward
+work.
+
+The LCP verification gate itself — fetch terms, recompute hash, check mandate — runs
+client-side, *around* any payment or authorization protocol. That is what lets Tier A work
+without protocol cooperation: LCP is additive, not invasive.
 
 ### 7.1 Naming Conventions
 
 The protocols are structurally different, so a single wire format cannot apply everywhere. The recommendations:
 
-**String fields** (e.g., MPP `opaque`, ACP metadata values): Use the `lcp:` prefix with a type indicator:
+**String fields** (e.g., ACP metadata values): Use the `lcp:` prefix with a type indicator:
 
 ```
 lcp:{type}:{value}
@@ -427,11 +444,42 @@ Each protocol integration specifies:
 
 #### MPP (Machine Payments Protocol)
 
-MPP is an open standard (IETF Internet-Draft, Apache 2.0), co-authored by Stripe and Tempo Labs. It enables machine-to-machine payments via HTTP 402 challenges, supporting stablecoins on Tempo, cards via Stripe, and Bitcoin via Lightning.
+MPP is an open standard (IETF Internet-Draft, CC0), co-authored by Stripe and Tempo Labs. It enables machine-to-machine payments via HTTP 402 challenges, supporting stablecoins on Tempo, cards via Stripe, and Bitcoin via Lightning.
 
-We recommend adding a dedicated `legalContext` field rather than overloading existing fields.
+**Tier A — Available today: LCP fields inside the HMAC-covered `request` body.**
 
-**In the 402 challenge (proposal phase):**
+The outer `WWW-Authenticate: Payment` header's HMAC input is positionally fixed across seven
+slots (realm, method, intent, request, expires, digest, opaque) per `draft-ryan-httpauth-payment`
+§5.1.2.1.1; a new outer parameter would fall outside the MAC and be unverifiable, so outer
+extension requires a spec change. The `request` parameter value itself IS inside the HMAC and
+carries a method-specific JSON body (after JCS canonicalization + base64url). LCP fields ride
+inside `methodDetails` of that body:
+
+```json
+{
+  "amount": "10000000",
+  "currency": "CCW67TSZ...",
+  "recipient": "M...",
+  "description": "...",
+  "externalId": "order-123",
+  "methodDetails": {
+    "network": "stellar:pubnet",
+    "atrHash": "0x7f83b165...",
+    "muxIdDerivation": "atrHash-prefix-8",
+    "legalContextUrl": "https://example.com/.well-known/legal-context.json"
+  }
+}
+```
+
+Because `methodDetails` is part of the HMAC-protected `request` body, the seller is
+cryptographically committed to the advertised `atrHash` at challenge time. `draft-stellar-charge-00`
+§4.2 defines `network` (required) and `feePayer` (optional) for `methodDetails` but is silent on
+unknown-key handling; adding LCP keys is a reasonable forward-compatible extension that the
+reference implementation exercises in production (see Appendix A). For the on-chain binding half
+of the story, see the Stellar subsection below.
+
+**Tier B — Proposed: first-class `legalContext` parameter in the `WWW-Authenticate` header.**
+
 ```
 WWW-Authenticate: Payment id="abc123", realm="api.example.com",
   method="tempo", intent="charge", request="eyJhb...",
@@ -440,7 +488,8 @@ WWW-Authenticate: Payment id="abc123", realm="api.example.com",
 
 > **Note:** MPP authenticates the 402 challenge via HMAC. Adding a `legalContext` parameter means it MUST be included in the HMAC computation; otherwise the client cannot verify challenge integrity. This requires a coordinated change to the MPP specification.
 
-**In the payment receipt (execution phase):**
+**Tier B — Proposed: first-class `legalContext` in the `Payment-Receipt`:**
+
 ```json
 {
   "method": "tempo",
@@ -454,21 +503,32 @@ WWW-Authenticate: Payment id="abc123", realm="api.example.com",
 }
 ```
 
-> **Note:** The receipt JSON shown above is the decoded content. In the MPP flow, this is base64url-encoded and transmitted in the `Payment-Receipt` header.
+> **Note:** The receipt JSON shown above is the decoded content. In the MPP flow, this is base64url-encoded and transmitted in the `Payment-Receipt` header. `draft-ryan-httpauth-payment` §5.3 defines the receipt core fields (status, method, timestamp, reference) and states "Payment method specifications MAY define additional fields for receipts." A first-class `legalContext` field therefore requires an upstream PR to whichever method spec the receipt rides under, so clients can parse it portably.
 
-Backward compatible — clients that do not understand `legalContext` ignore it. This change can be submitted upstream as a PR to the MPP specification.
+This change can be submitted upstream as a PR to the relevant MPP method specification.
 
-**MPP Sessions:** MPP supports session-based streaming micropayments where an agent authorizes a spending limit upfront and streams payments against the session. For session-based payments, the `legalContext` SHOULD be included in the session establishment (the initial 402 challenge that creates the session) rather than in each individual streamed payment. All payments within a session are governed by the terms established at session creation.
-
-**TIP-20 memo (32 bytes):** The raw SHA-256 content hash can be placed directly in the memo field for on-chain binding. No type prefix — the field's purpose is defined by the integration guide.
-
-> **Note:** MPP's SDK auto-generates an attribution memo in the TIP-20 memo field only when no user-provided memo is present. Providing a contentHash as the memo replaces MPP's default attribution — this is the intended behavior for LCP-enabled transactions. The `legalContext` field in the receipt provides the same binding at the protocol level; the TIP-20 memo provides additional on-chain binding.
+**On-chain binding per MPP method:** Each method's underlying chain has its own mechanism for
+tying a specific settlement transaction to an `atrHash`. These are described in the
+chain-specific subsections (see "Stellar — In-band binding via CAP-67 muxed addresses" below).
+For rails with a structured attribution field (such as Tempo's TIP-20 `Attribution`), the
+degree to which an arbitrary 32-byte ATR hash can occupy that field depends on the rail's
+attribution schema; on Tempo specifically the Attribution layout reserves internal fields
+(MPP tag, server/client fingerprints, nonce), so the content hash cannot straightforwardly
+replace it without reconciliation against the current Attribution documentation. Treat
+cross-chain on-chain binding as chain-specific.
 
 #### ACP (Agentic Commerce Protocol)
 
-ACP is an open-source specification (Apache 2.0) co-maintained by OpenAI and Stripe. Version 2026-01-30 introduced a formal extensions mechanism.
+**Tier A — Available today: freeform session metadata.** ACP session metadata and checkout
+response `links` already accept arbitrary keys; an `"legalContext"` entry can be published
+today without cooperation. The formal extension registration below is the path to
+standardized parsing.
 
-We recommend submitting a Specification Enhancement Proposal (SEP) to register LCP as a formal ACP extension, rather than using freeform session metadata.
+ACP is an open-source specification (Apache 2.0) maintained by OpenAI and Stripe. Version 2026-01-30 introduced a formal extensions mechanism.
+
+**Tier B — Proposed: formal `com.integra.legal-context` extension.** Submit a Specification
+Enhancement Proposal (SEP) to register LCP as a first-class ACP extension, rather than using
+freeform session metadata.
 
 **As an ACP extension:**
 
@@ -496,36 +556,130 @@ ACP checkout responses already include a `links` array with `terms_of_use`, `pri
 
 #### x402
 
-x402 is an HTTP 402-based payment protocol co-founded by Cloudflare and Coinbase (x402 Foundation), now including Google and Visa.
+**Tier A — Available today: `accepts[].extra` and top-level `extensions` in x402 v2.**
 
-> **Note:** This targets x402 v2, which introduces a native `extensions` field in PaymentRequired responses.
+x402 is an HTTP 402-based payment protocol created by Coinbase. The x402 Foundation was co-founded by Coinbase and Cloudflare, with Google and Visa among the Foundation's members. x402 v2 defines two forward-compatible extension points in the `PaymentRequired` response: `accepts[].extra` (per payment-requirement) and a top-level `extensions` object. Unknown keys are ignored by conforming clients.
 
-**Option 1 — Custom response header:**
+**Recommended — per-requirement `extra` block:**
+```json
+{
+  "x402Version": 2,
+  "accepts": [{
+    "scheme": "exact",
+    "network": "stellar:pubnet",
+    "asset": "CCW67TSZ...",
+    "payTo": "M...",
+    "amount": "100000",
+    "maxTimeoutSeconds": 60,
+    "extra": {
+      "areFeesSponsored": false,
+      "atrHash": "0x7f83b165...",
+      "muxIdDerivation": "atrHash-prefix-8",
+      "legalContextUrl": "https://example.com/.well-known/legal-context.json",
+      "sellerAnchorTx": "<stellar tx hash>"
+    }
+  }]
+}
 ```
-X-LCP-Hash: 0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069
-```
 
-**Option 2 (recommended) — x402 v2 `extensions` field:**
+The Stellar `exact` scheme documents `areFeesSponsored` as the canonical `extra` key; LCP keys sit alongside it. The v2 spec does not prescribe unknown-key handling, so portability of additional `extra`/`extensions` keys across facilitators is reached by convention and empirical compatibility (confirmed in the reference implementation, Appendix A), not by a normative spec clause.
+
+**Alternative — top-level `extensions`:**
 ```json
 {
   "extensions": {
-    "legalContext": {
-      "type": "sha256",
-      "value": "0x7f83b165..."
-    }
+    "legalContext": { "type": "sha256", "value": "0x7f83b165..." }
   }
 }
 ```
 
-The `extensions` field is the preferred integration point as it is part of the x402 v2 PaymentRequired schema and does not require custom headers. x402 v2 also supports reusable sessions — as with MPP, the `legalContext` SHOULD be established at session creation and governs all payments within the session.
+Both forms work with the stock Stellar SDK today. Session semantics are explicitly out of scope for x402 v2 core (spec §3); any session-level LCP enforcement is an application-layer concern above the protocol, not an extension of x402.
+
+**Complementary — custom response header:**
+```
+X-LCP-Hash: 0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069
+```
+
+Safe on any HTTP-based rail, including x402 v1 deployments that lack the `extensions` field. Not part of the protocol's cryptographic signature; use the `accepts[].extra` block where available.
+
+**Tier B — Proposed: first-class `legalContext` in `PAYMENT-RESPONSE` receipts.** The v2 HTTP transport defines the decoded `PAYMENT-RESPONSE` as `{success, errorReason, transaction, network, payer}` with no `extensions` field on the receipt. Adding a portable `legalContext` receipt field therefore requires an upstream spec change.
+
+#### Stellar — In-band binding via CAP-67 muxed addresses
+
+**Tier A — Available today.** Both the x402 and MPP sections above point to this subsection
+for the on-chain half of the story. The mechanism is Stellar-specific; the same pattern —
+embedding an 8-byte derivation of the ATR hash into a settlement transaction's destination —
+is achievable on any chain that exposes a comparable primitive.
+
+**The primitive.** CAP-67 ("Soroban Muxed Addresses"), activated on Stellar mainnet on
+September 3, 2025 as part of Protocol 23, allows a standard Stellar `G`-address to be
+extended with an 8-byte identifier and encoded as a 69-character `M`-address. The 8-byte
+identifier (`mux_id`) flows through Soroban contract invocations — including the standard
+SEP-41 `transfer(from, to, amount)` call that x402 and MPP both use — and is surfaced
+on-chain in the emitted transfer event as a field named `to_muxed_id`.
+
+**The binding.** The seller encodes an 8-byte derivation of the ATR hash into the `mux_id`
+portion of its advertised destination address:
+
+- `muxId = atrHash[:8]` — plain-prefix derivation. Straightforward; 2⁶⁴ collision
+  resistance against adversarial second-preimage search. Appropriate for demos and
+  low-stakes flows.
+- `muxId = HMAC-SHA256(sellerKey, atrHash)[:8]` — keyed derivation. Forgery requires the
+  seller's HMAC key; effectively impossible for a third party. RECOMMENDED for production.
+
+The seller advertises the derivation scheme in the challenge (e.g. as
+`extra.muxIdDerivation` in x402 or `methodDetails.muxIdDerivation` in MPP) so the buyer's
+agent can independently verify the `mux_id` before signing.
+
+**Why this constitutes a binding.** In x402 (and in MPP unsponsored pull mode), the buyer
+signs a Soroban authorization entry that covers the SAC `transfer` invocation, including the
+`to` argument. When `to` is a muxed address, the buyer's signature covers the `mux_id` —
+which is mathematically tied to the advertised `atrHash`. The settlement transaction on
+mainnet is therefore a signed, public commitment to *this specific payment, under these
+specific terms*. The linkage is visible to any third party as the `to_muxed_id` field of the
+emitted transfer event.
+
+**Compatibility.** Stock `@x402/stellar` and stock `@stellar/mpp` both accept M-addresses in
+`payTo` / `recipient` positions without modification. Publicly available x402 facilitators
+(Coinbase CDP, OpenZeppelin Relayer) submit them unchanged. No wrapper contract, no protocol
+fork.
+
+**Complementary: seller one-time anchor.** The 8-byte `mux_id` binds each *individual* payment
+to the `atrHash`. To publicly commit the *full* 32-byte `atrHash` at the seller's account, a
+seller SHOULD submit one classic Stellar payment from its well-known account, once per terms
+version, with `memo_hash = atrHash`. This is not self-dealing — it is the seller publicly
+attesting to its own offer, equivalent to printing terms on a product label. The resulting
+transaction is a public, timestamped record of *"at time T0, seller X committed `atrHash` H
+as the terms it will transact under."* A dispute's evidence bundle then has three independently
+verifiable layers:
+
+1. The terms document itself (IPFS CID, content-addressed).
+2. The seller's full 32-byte commitment (classic payment, `memo_hash = atrHash`).
+3. Each individual payment's 8-byte link (`to_muxed_id` in the Soroban transfer event).
+
+All three are visible without trusting either party. The combination — **content →
+commitment → per-payment reference** — is the Level 2 evidence chain LCP is designed to
+produce.
+
+**Limits.** The 8-byte on-chain field is sufficient for indexing and cryptographic
+non-repudiation given the full 32-byte anchor elsewhere; it is not itself a 32-byte
+commitment. Systems that require a full 32-byte hash in the settlement tx itself must either
+deploy a wrapper contract that emits a full event (out of scope for this spec), or rely on
+the seller-anchor pattern above as the full-hash record.
+
+**Reference implementation.** A live mainnet reference implementation is maintained by
+Integra and demonstrates both x402 and MPP flows end-to-end with the seller anchor and
+per-payment muxed binding. See Appendix A.
 
 #### UCP (Universal Commerce Protocol)
+
+**Tier B — Proposed: formal `allOf` extension registration.**
 
 UCP is an open-source standard (Apache 2.0) co-developed by Google with Shopify, Etsy, Wayfair, Target, and Walmart. It covers the full commerce lifecycle: discovery, catalog, checkout, orders, fulfillment, and post-purchase adjustments. UCP uses a composable extension architecture and publishes its own well-known discovery file at `/.well-known/ucp`.
 
 **LCP as a UCP extension:**
 
-UCP requires formal `allOf` schema extensions using reverse-domain naming conventions. Legal context would be registered as:
+UCP requires formal `allOf` schema extensions using reverse-domain naming conventions — this requires upstream registration, not a drop-in extension. Legal context would be registered as:
 
 ```json
 {
@@ -542,7 +696,7 @@ UCP requires formal `allOf` schema extensions using reverse-domain naming conven
 }
 ```
 
-**Relationship to UCP's existing `links` array:** UCP checkout responses require `privacy_policy` and `terms_of_service` URLs in the `links` array. These serve as the Level 1 (informational) integration — the terms are discoverable. The LCP extension adds Level 2+ capabilities (content hash, signed acceptance, dispute resolution hooks) without replacing the existing `links` requirement.
+**Relationship to UCP's existing `links` array:** UCP checkout responses include a required `links` array, with `privacy_policy` and `terms_of_service` as recommended well-known types. These serve as the Level 1 (informational) integration — the terms are discoverable. The LCP extension adds Level 2+ capabilities (content hash, signed acceptance, dispute resolution hooks) without replacing the existing `links` array.
 
 **Relationship to UCP's Buyer Consent extension:** UCP provides a Buyer Consent extension (`ucp.dev/specification/buyer-consent/`) for declarative consent capture. LCP Level 3 (signed acceptance) provides cryptographic consent — a stronger, verifiable form. The two can coexist: Buyer Consent for UCP-level declarative consent, LCP Level 3 for cryptographic proof of acceptance.
 
@@ -550,7 +704,16 @@ UCP requires formal `allOf` schema extensions using reverse-domain naming conven
 
 #### Visa TAP (Trusted Agent Protocol)
 
-Visa TAP is an open framework built on RFC 9421 HTTP Message Signatures, co-developed with Cloudflare. It uses a three-signature model to establish agent identity, consumer identity, and payment authorization in every transaction. The protocol, its specifications, and a reference implementation are publicly available on the Visa Developer Center and GitHub.
+**Tier B — Proposed.** TAP's body objects and covered-header sets are signature-bound with
+defined extension points. The spec states that "an Agent or a Payment Scheme may optionally
+define additional fields" inside the existing signed objects, so extension at those points is
+anticipated; however, a sibling object placed outside Consumer Recognition and Payment Container
+does not auto-inherit the existing signature chain. A cleanly-integrated LCP reference is
+therefore a proposed pattern: either register it inside one of the existing signed objects, or
+give the new object its own `nonce`/`keyid`/`alg`/`signature` quartet mirroring the two existing
+objects.
+
+Visa TAP is an ecosystem-led framework built on RFC 9421 HTTP Message Signatures, developed in collaboration with Cloudflare. It uses a three-signature model to establish agent identity, consumer identity, and payment authorization in every transaction. The protocol specifications and a reference implementation are available on the Visa Developer Center and GitHub.
 
 TAP applies signatures during two interaction types: browsing (`agent-browser-auth` tag) and payment (`agent-payer-auth` tag). Each interaction can include three signed components:
 
@@ -568,12 +731,16 @@ TAP's body objects (Consumer Recognition, Payment Container) are each independen
   "paymentContainer": { ... },
   "legalContext": {
     "type": "sha256",
-    "value": "0x7f83b165..."
+    "value": "0x7f83b165...",
+    "nonce": "<same nonce as the agent signature>",
+    "keyid": "<same keyid>",
+    "alg": "ed25519",
+    "signature": "<signature over the legalContext claims, including the shared nonce>"
   }
 }
 ```
 
-The shared key and nonce cryptographically bind the legal context to the agent identity, consumer identity, and payment data — proving not only *who* initiated the transaction and *that they were authorized*, but also *what terms governed it*. This follows the same signature-linking pattern TAP uses for its existing body objects.
+The shared `nonce` and `keyid` — signed by the same key as Consumer Recognition and Payment Container — are what join the legal-context object into TAP's signature chain. A bare `{type, value}` sibling without its own signature quartet does not inherit the chain and would be silently replaceable; any proposed integration MUST follow the same signing pattern TAP uses for its existing body objects (or register `legalContext` as a field inside one of those objects, which TAP's extension clause already permits).
 
 **Alternative — custom header in covered components:**
 
@@ -583,7 +750,14 @@ Include `X-LCP-Hash` as a custom header. If added to the TAP signature's covered
 
 #### A2A (Agent-to-Agent Protocol)
 
-A2A is an open protocol (Apache 2.0) enabling communication between AI agents. Created by Google, now governed by the Agentic AI Foundation (AAIF) under the Linux Foundation, with nearly 150 member organizations. Version 1.0 supports JSON-RPC, gRPC, and HTTP/REST bindings.
+**Tier A — Available today.** Task metadata in A2A is a key/value map explicitly defined as
+free for custom fields (spec §4.1.1), so LCP references can be added there without any
+coordination. Agent Cards in A2A v1.0 use a tightened schema with a formal extensions
+mechanism (spec §4.6) — custom fields should flow through that mechanism rather than as
+arbitrary top-level keys, but no upstream acceptance is required for a vendor to declare its
+own extension.
+
+A2A is an open protocol (Apache 2.0) enabling communication between AI agents. Created by Google, now hosted by the Linux Foundation, with over 150 supporting organizations. Version 1.0 supports JSON-RPC, gRPC, and HTTP/REST bindings.
 
 **Agent Card extension — publishing legal requirements:**
 
@@ -626,6 +800,9 @@ Before agents collaborate on a task via A2A, the initiating agent can include LC
 
 #### MCP (Model Context Protocol)
 
+**Tier A — Available today.** MCP tool annotations and descriptions are freeform; LCP hints
+can be added by any tool author without coordination.
+
 MCP is the universal standard for agent-to-tool connectivity (97M+ monthly downloads), governed by the AAIF under the Linux Foundation. See Section 9 for detailed guidance on LCP as an MCP server.
 
 **Tool-level legal context:** MCP tools that involve legally significant actions (purchases, commitments, agreements) can signal this through their standard annotations and description. The `destructiveHint` and `openWorldHint` annotations indicate state-changing external interactions; the tool description should specify that legal context verification is expected before invocation:
@@ -643,9 +820,14 @@ MCP is the universal standard for agent-to-tool connectivity (97M+ monthly downl
 
 #### AP2 (Agent Payments Protocol)
 
-AP2 is an open protocol (Apache 2.0) created by Google for secure AI-agent-driven payments. It uses W3C Verifiable Digital Credentials (VDCs) implemented as SD-JWT with Key Binding. 100+ partners including Mastercard, PayPal, American Express, and Coinbase.
+**Tier B — Proposed.** AP2 mandates are SD-JWT credentials with Key Binding; their
+constraint and payload structures are signature-covered. LCP data can travel alongside a
+mandate in the A2A transport layer (Tier A), but embedding LCP inside the AP2 mandate itself
+— so it's carried through the mandate chain — requires upstream extension.
 
-AP2 defines three mandate types: Cart Mandates (human-present, user signs exact cart), Intent Mandates (human-not-present, user delegates within constraints), and Payment Mandates (for the payments ecosystem). Cart Mandates include a merchant cryptographic signature guaranteeing fulfillment and refund conditions.
+AP2 is an open protocol (Apache 2.0) created by Google for secure AI-agent-driven payments. It uses Verifiable Digital Credentials (VDCs), implemented as SD-JWT with Key Binding. 60+ partners including Mastercard, PayPal, American Express, and Coinbase.
+
+AP2 defines three mandate types: Cart Mandates (human-present, user signs exact cart), Intent Mandates (human-not-present, user delegates within constraints), and Payment Mandates (for the payments ecosystem). Cart Mandates include a merchant cryptographic signature guaranteeing fulfillment, with refund conditions optionally included.
 
 **LCP alongside mandates:**
 
@@ -661,16 +843,23 @@ The LCP reference SHOULD travel alongside the mandate — either in the A2A tran
 
 **Intent Mandate enrichment:** For autonomous (human-not-present) mandates, the natural language intent can be paired with machine-readable LCP constraints specifying the legal framework within which the agent may act. This extends the agent's authorization from financial constraints (spending caps, merchant categories) to legal constraints (acceptable jurisdictions, required dispute resolution methods, maximum contract duration).
 
-**Dispute evidence integration:** AP2 defines a dispute evidence framework with liability allocation tables for scenarios including first-party fraud, agent mispicks, merchant non-fulfillment, and account takeover. The LCP `contentHash` and agreement record provide additional evidence: what terms were in effect, whether the merchant's offer matched the terms at transaction time, and what dispute resolution process was specified.
+**Dispute evidence integration:** AP2 defines a dispute evidence framework with liability allocation tables for scenarios including first-party misuse, agent mispicks, merchant non-fulfillment, and account takeover. The LCP `contentHash` and agreement record provide additional evidence: what terms were in effect, whether the merchant's offer matched the terms at transaction time, and what dispute resolution process was specified.
 
 #### Mastercard Agent Pay and Verifiable Intent
 
-Mastercard Agent Pay is the acceptance framework for agent-initiated transactions on the Mastercard network. It includes Know Your Agent (KYA) registration, agentic tokens (dynamic, cryptographically secure payment credentials via network-level tokenization), and the Dynamic Token Verification Code (DTVC) enabling no-code merchant integration through standard card payment fields, verified at the CDN layer via Cloudflare's Web Bot Auth.
+**Tier A — Available today via Verifiable Intent's custom-constraint mechanism.** The
+Verifiable Intent spec's `constraints.md` normatively permits implementations to define custom
+constraint types using URN or reverse-domain naming (e.g., `urn:integra:lcp-terms-hash`) beyond
+its eight registered types. LCP can register a custom Layer 2 constraint carrying the ATR hash
+without coordinated protocol change. Agent Pay's Mastercard-network token primitives (agentic
+tokens, DTVC) are not directly relevant as LCP carriers.
 
-Mastercard's Verifiable Intent is an open-source cryptographic framework (Apache 2.0, verifiableintent.dev) co-developed with Google. It creates a tamper-resistant record of consumer authorization using a three-layer SD-JWT credential format:
+Mastercard Agent Pay is the acceptance framework for agent-initiated transactions on the Mastercard network. It includes Know Your Agent (KYA) registration, agentic tokens (dynamic, cryptographically secure payment credentials via network-level tokenization), and the Dynamic Token Verification Code (DTVC) — a tokenized credential formatted for standard card-payment fields so merchants do not modify their checkout forms. The DTVC itself is validated via Mastercard's tokenization rails during authorization; separately, Web Bot Auth (RFC 9421 HTTP Message Signatures, developed with Cloudflare) verifies agent authenticity at the CDN layer before the tokenized payment reaches the merchant.
+
+Mastercard's Verifiable Intent is an open-source cryptographic framework (Apache 2.0, verifiableintent.dev) co-launched with Google (repository governance is Mastercard-led). It creates a tamper-resistant record of consumer authorization using a three-layer SD-JWT credential format:
 
 - **Layer 1 (Identity):** Issuer-signed credential binding consumer identity to a payment instrument (~1 year lifetime)
-- **Layer 2 (Intent):** User-signed authorization with constraints — amount bounds, merchant categories, validity windows, geographic scope (~15 minutes lifetime in immediate mode; 24 hours to 30 days in autonomous mode)
+- **Layer 2 (Intent):** User-signed authorization whose registered constraint types are `mandate.checkout.allowed_merchant`, `mandate.checkout.line_items`, `payment.allowed_payee`, `payment.amount`, `payment.budget`, `payment.recurrence`, `payment.agent_recurrence`, and `payment.reference`. Implementations MAY define custom constraint types using URN or reverse-domain naming. (~15 minutes lifetime in immediate mode; 24 hours to 30 days in autonomous mode.)
 - **Layer 3 (Action, autonomous mode only):** Agent-signed execution record showing what the agent actually did (~5 minutes lifetime)
 
 Verifiable Intent uses Selective Disclosure to share only the minimum information each party needs: merchants see authorization validity, issuers see full transaction history, dispute systems see whether the transaction fell within or outside the mandate parameters.
@@ -687,9 +876,9 @@ Verifiable Intent captures the consumer's authorization chain — what the consu
 | Both parties agreed | LCP Level 3+ signed acceptance record |
 | Dispute resolution is available | LCP Level 4 (`disputeResolution`) + AAA |
 
-**Integration point — Verifiable Intent Layer 2:**
+**Integration point — Verifiable Intent Layer 2 custom constraint (Tier A):**
 
-The consumer's Intent credential (Layer 2) defines financial constraints. LCP can extend this with legal constraints — acceptable terms of service, required dispute resolution, jurisdiction preferences. These legal constraints would be included in the Layer 2 credential alongside the existing financial constraints, signed by the user's device key, and carried through the mandate chain.
+The consumer's Intent credential (Layer 2) registers eight constraint types and explicitly permits custom types via URN / reverse-domain naming. LCP registers a custom constraint — e.g. `urn:integra:lcp-terms-hash` carrying the ATR hash, plus related fields for jurisdiction and dispute method — included in the Layer 2 credential alongside the registered constraints, signed by the user's device key, and carried through the mandate chain. No upstream protocol change required; LCP integration lives in the extension point Verifiable Intent already defines.
 
 **Dispute resolution pipeline:** Verifiable Intent explicitly designs for dispute evidence but explicitly excludes the dispute mechanism itself. LCP Level 4 provides the mechanism: the `disputeResolution` field specifies the process (e.g., AAA Commercial Arbitration Rules), and the `api` field provides the entry point for filing. The combined evidence package — Verifiable Intent credential chain (consumer authorization) + LCP terms record (merchant offer) + LCP signed acceptance record (mutual consent) — provides a complete evidentiary foundation for arbitration.
 
@@ -734,7 +923,7 @@ When a dispute arises, the resolution process requires evidence from both sides:
 | What dispute resolution was specified? | LCP `disputeResolution` field |
 | What jurisdiction governs? | LCP `disputeResolution.jurisdiction` |
 
-No single protocol provides all of this evidence. The combination of authorization protocols + LCP creates the complete evidentiary foundation that institutional dispute resolution (AAA-ICDR) requires.
+No single protocol provides all of this evidence. The combination of authorization protocols + LCP creates the complete evidentiary foundation that institutional dispute resolution (AAA) requires.
 
 ---
 
@@ -808,10 +997,10 @@ This specification requests the registration of a well-known URI per [RFC 8615]:
 | Field | Value |
 |-------|-------|
 | URI suffix | `legal-context.json` |
-| Change controller | Integra Ledger |
+| Change controller | LCP Technical Steering Committee |
 | Specification document | This document |
 | Status | Provisional |
-| Related information | Provides legal context discovery for agentic commerce. Complements `/.well-known/ucp` (UCP), `/.well-known/agent-card.json` (A2A), and `/.well-known/acp.json` (ACP). |
+| Related information | Provides legal context discovery for agentic commerce. Complements `/.well-known/ucp` (UCP) and `/.well-known/agent-card.json` (A2A). |
 
 ---
 
@@ -867,16 +1056,16 @@ Implementations SHOULD implement rate limiting on the `/.well-known/legal-contex
 - [RFC 9421] Backman, A., et al., "HTTP Message Signatures", RFC 9421, February 2024.
 - [RFC 9457] Nottingham, M., Wilde, E., and S. Dalal, "Problem Details for HTTP APIs", RFC 9457, July 2023.
 - Fisher, D. and McCormack, B., "Identity, Trust, and the Legal Foundations of Agentic Commerce", March 2026.
-- Stripe and Tempo Labs, "Machine Payments Protocol", IETF Internet-Draft, 2026.
-- OpenAI and Stripe, "Agentic Commerce Protocol", v2026-01-30.
-- Google, "Universal Commerce Protocol", v1.0, January 2026.
+- Ryan, B., Moxey, J., Meagher, T., Weinstein, J., and Kaliski, S., "The 'Payment' HTTP Authentication Scheme" (Machine Payments Protocol), IETF Internet-Draft draft-ryan-httpauth-payment-01, March 2026.
+- OpenAI and Stripe, "Agentic Commerce Protocol", version 2026-01-30.
+- Google, "Universal Commerce Protocol", version 2026-01-11, January 2026.
 - Google, "Agent Payments Protocol (AP2)", v0.1, September 2025.
-- Google, "Agent-to-Agent Protocol (A2A)", v1.0, 2025. (Donated to Linux Foundation June 2025; v1.0 released subsequently.)
+- Google, "Agent-to-Agent Protocol (A2A)", v1.0, March 2026. (Donated to Linux Foundation June 2025; v1.0 released March 2026.)
 - Anthropic, "Model Context Protocol", spec version 2025-11-25.
-- Visa, "Trusted Agent Protocol", 2025.
-- Mastercard and Google, "Verifiable Intent", v0.1, March 2026.
-- Cloudflare, "Web Bot Auth", draft-meunier-web-bot-auth-architecture, 2025.
-- Coinbase and Cloudflare, "x402 Protocol", 2025.
+- Visa, "Trusted Agent Protocol", October 2025.
+- Mastercard, "Verifiable Intent", 0.1-draft, February 2026.
+- Meunier, T. and Major, S., "HTTP Message Signatures for automated traffic Architecture" (Web Bot Auth), IETF Internet-Draft draft-meunier-web-bot-auth-architecture, 2026.
+- Coinbase, "x402 Protocol", 2025.
 - [EIP-712] Bloemen, R., Logvinov, L., and Evans, J., "Typed structured data hashing and signing", Ethereum Improvement Proposal 712.
 
 ---
@@ -892,6 +1081,11 @@ This standard defines the discovery mechanism and document convention. How a ser
 - IPFS document preservation via Pinata
 - EIP-712 typed data schemas for signed acceptance
 - MCP server exposing LCP tools, resources, and prompts (see Section 9)
+- **Stellar in-band binding:** a live Stellar mainnet reference implementing the CAP-67
+  muxed-address pattern described in §7.3 for both x402 and MPP rails, with the optional
+  seller one-time anchor. Serves as the reference for Tier A integrations against stock
+  `@x402/stellar` and `@stellar/mpp`. Integra will publish the source and the URL of the
+  running demo as a separate release artifact.
 
 Other implementations are possible and encouraged. The standard defines the interface; implementations provide the capability. The `api` field in `legal-context.json` is the hook from the standard to any implementation.
 
