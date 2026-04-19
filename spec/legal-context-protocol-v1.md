@@ -1,6 +1,6 @@
 # Legal Context Protocol
 
-**Version:** 1.1
+**Version:** 0.1.1
 **Date:** April 19, 2026
 **Authors:** David Fisher (Integra Ledger), David Berger
 **Status:** Draft
