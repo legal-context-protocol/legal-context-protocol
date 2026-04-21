@@ -75,15 +75,21 @@ Each level is independently valuable. A service can implement any level without 
 
 ## Protocol Integration
 
-LCP integrates with the major agentic commerce and authorization protocols in two tiers: those that work today against stock, unmodified protocols using existing extension surfaces, and those that require upstream specification changes. See the specification's Section 7 for per-protocol detail.
+LCP integrates with the major agentic commerce and authorization protocols in two tiers: mechanisms that work today against stock, unmodified protocols using existing extension surfaces (Tier A), and mechanisms that require upstream specification changes (Tier B). Specification §7 has the full detail:
+
+- **§7.3 On-Chain Binding Patterns** defines the pattern vocabulary used below — Native Field, Overlay Contract, Sidecar Attestation, Opaque Challenge, Id-Reuse, Protocol Extension — with two evaluation axes (wire compatibility, adoption cost) and three recovery properties (on-chain, zero-party recoverable, forward-indexable).
+- **§7.4 Per-Protocol Integration** identifies the applicable patterns for each rail and credential type, with trade-off analysis.
 
 | Protocol | Integration surface | Tier |
 |----------|---------------------|------|
 | MPP | LCP fields inside the HMAC-covered `request.methodDetails` body | A — Available today |
 | MPP | First-class `legalContext` on `WWW-Authenticate: Payment` header or `Payment-Receipt` | B — Proposed |
+| MPP Tempo (on-chain) | `methodDetails.memo = atrHash` → TIP-20 indexed memo (Native Field) | A — Available today |
+| MPP-EVM (on-chain) | Opaque, Id-Reuse, Overlay Contract, or custom-method Protocol Extension | A / B |
 | x402 | `accepts[].extra` per-requirement block and top-level `extensions` in v2 | A — Available today |
+| x402 EVM (on-chain) | Overlay Contract, Sidecar Attestation, or off-canonical Native Field | A — Available today |
 | x402 | First-class `legalContext` field on `PAYMENT-RESPONSE` receipts | B — Proposed |
-| Stellar (in-band binding) | CAP-67 muxed destination whose `mux_id` encodes the ATR hash | A — Available today |
+| Stellar (in-band binding) | CAP-67 muxed destination whose `mux_id` encodes the ATR hash (Native Field) | A — Available today |
 | ACP | Freeform session metadata / `links` array | A — Available today |
 | ACP | Formal `capabilities.extensions[]` registration (SEP) | B — Proposed |
 | UCP | `allOf` schema extension with reverse-domain naming | B — Proposed |

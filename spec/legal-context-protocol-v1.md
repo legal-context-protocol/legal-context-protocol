@@ -1,7 +1,7 @@
 # Legal Context Protocol
 
-**Version:** 0.1.1
-**Date:** April 19, 2026
+**Version:** 0.1.2
+**Date:** April 21, 2026
 **Authors:** David Fisher (Integra Ledger), David Berger
 **Status:** Draft
 **License:** Apache 2.0
@@ -380,22 +380,30 @@ For persistent private terms (Level 4). See Section 5.2 for the hash-then-encryp
 
 *This section is advisory.*
 
-This section describes how legal context references can be embedded in existing agentic commerce protocols. The integrations fall into two tiers:
+This section describes how legal context references can be embedded in existing
+agentic commerce protocols. Two subsections do the work:
 
-- **Tier A — Available today.** Mechanisms that work against stock, unmodified protocols by using extension fields those protocols already expose, custom HTTP headers, or chain primitives the underlying rail already supports. No upstream coordination required.
-- **Tier B — Proposed extensions.** Mechanisms that require upstream specification changes (HMAC-covered challenge parameters, first-class receipt fields, integration into closed-schema signed envelopes). These are proposals seeking upstream acceptance; they tighten binding but are not prerequisites for adoption.
+- **§7.3 On-Chain Binding Patterns** defines the pattern vocabulary and the two
+  evaluation axes — wire compatibility (Tier A available today vs Tier B requiring
+  upstream spec change) and adoption cost (Native field, Overlay contract, Sidecar
+  attestation, Protocol extension) — plus three recovery properties (on-chain,
+  zero-party recoverable, forward-indexable). Six named patterns: Native Field,
+  Overlay Contract, Sidecar Attestation, Opaque Challenge, Id-Reuse, Protocol
+  Extension.
+- **§7.4 Per-Protocol Integration** identifies the applicable patterns for each
+  rail and credential type, with trade-off analysis grounded in the §7.3 framework.
 
-Each per-protocol subsection in §7.3 is labeled with its tier. Deployments can adopt Tier A
-today, without any cooperation from the protocols named below; Tier B describes the forward
-work.
+Each §7.4 subsection is labeled Tier A or Tier B. Deployments can adopt Tier A
+mechanisms today without any cooperation from the protocols named; Tier B describes
+the forward work.
 
 The LCP verification gate itself — fetch terms, recompute hash, check mandate — runs
-client-side, *around* any payment or authorization protocol. That is what lets Tier A work
-without protocol cooperation: LCP is additive, not invasive.
+client-side, *around* any payment or authorization protocol. That is what lets Tier A
+work without protocol cooperation: LCP is additive, not invasive.
 
 ### 7.1 Naming Conventions
 
-The protocols are structurally different, so a single wire format cannot apply everywhere. The recommendations:
+The protocols are structurally different, so a single wire format cannot apply everywhere. The conventions below define how LCP references are encoded in each kind of carrier.
 
 **String fields** (e.g., ACP metadata values): Use the `lcp:` prefix with a type indicator:
 
@@ -432,7 +440,226 @@ The type set is extensible. This is not a closed set.
 | `url` | URL to terms or `legal-context.json` | `lcp:url:https://example.com/terms/v3.pdf` |
 | `integra` | Integra record reference | `lcp:integra:0xabcdef...` |
 
-### 7.3 Per-Protocol Integration
+### 7.3 On-Chain Binding Patterns
+
+LCP's Level 2+ evidence chain relies on a binding between a settlement transaction
+and the `contentHash` of the terms document. Different protocols and different rails
+expose different mechanisms for carrying that binding. This subsection defines the
+pattern vocabulary used throughout the per-protocol integration guides in §7.4.
+
+Each binding pattern is characterized along two axes:
+
+**Wire compatibility** — can the pattern be deployed against stock, unmodified
+protocol implementations?
+
+- **Tier A** — works today, no upstream coordination required.
+- **Tier B** — requires a coordinated change to the upstream specification (new
+  fields, new covered headers, new mandate structures, new registered methods).
+
+**Adoption cost** — what does a seller (and the ecosystem around it) have to do to
+use the pattern?
+
+- **Native field** — the binding rides in an existing protocol field the seller
+  already controls; no extra contract, no extra transaction.
+- **Overlay contract** — the binding lives in a seller-deployed contract that
+  wraps or succeeds the canonical settlement call, emitting an indexed event.
+- **Sidecar attestation** — the binding lives in a separate transaction or
+  attestation anchored to the settlement tx by reference.
+- **Protocol extension** — a new scheme, method, or registered extension defines
+  atrHash-aware semantics inside the host protocol.
+
+Each pattern is evaluated against three recovery properties:
+
+1. **On-chain** — is the binding visible on a public ledger?
+2. **Zero-party recoverable** — can an auditor reconstruct `contentHash` from the
+   settlement transaction hash alone, without trusting either party to produce
+   records?
+3. **Forward-indexable** — can an auditor enumerate all settlements bound to a
+   given `contentHash`?
+
+#### 7.3.1 Native field
+
+The binding rides in a field the seller controls in the canonical wire format,
+and that field is carried through to the settlement transaction.
+
+Examples:
+- TIP-20 `transferWithMemo` memo on Tempo (emitted as an indexed event topic;
+  protocol does not constrain the memo value — see §7.4 MPP).
+- Stellar CAP-67 `mux_id` (8-byte identifier carried in the destination address
+  and emitted as `to_muxed_id` in the transfer event — see §7.4 Stellar).
+- EIP-3009 `nonce` under x402 when the client honors a seller-advertised value
+  (off-canonical: the x402 spec describes the nonce as client-chosen and the
+  canonical verifier does not check it against any server value — see §7.4 x402).
+
+**Trade-offs:**
+- **Tier A** where the protocol leaves the field's value unconstrained (Tempo memo,
+  Stellar mux_id). Works against stock clients and verifiers.
+- **Off-canonical** where the field is specified as client-chosen or as a
+  deterministic derivation that excludes atrHash (x402 `authorization.nonce`,
+  MPP-EVM `authorization.nonce = keccak(id ‖ realm)`). Works today only within a
+  controlled client ecosystem where the seller can guarantee cooperating client
+  behavior; not interoperable with stock implementations. Not Tier A in the
+  unqualified sense, and not Tier B either (no upstream spec change is required,
+  only a client-side opt-in). Deployments using this variant should publish a
+  named LCP profile so third parties can opt in explicitly.
+- Zero deploy cost, zero extra gas, zero off-chain state.
+- Recovery properties depend on the field's on-chain visibility. Where the field
+  is emitted in an indexed event topic, forward indexing is natively supported.
+
+#### 7.3.2 Overlay contract (router)
+
+A seller-deployed contract accepts the canonical settlement call as an inner
+operation and emits an LCP-specific event carrying `contentHash` as an indexed
+topic. The underlying settlement primitive (EIP-3009, Permit2, native transfer)
+is unchanged; the binding lives in the overlay.
+
+Example: a router contract whose `pay` entry point executes the canonical
+`transferWithAuthorization` internally and emits `LcpPayment(from, to, amount,
+indexed atrHash)` in the same transaction.
+
+**Trade-offs:**
+- Tier A on the wire protocol — stock clients and verifiers see a spec-compliant
+  settlement call.
+- Overlay contract is seller-deployed per chain; requires audit and adds gas per
+  payment (typically ~20-30k additional gas on EVM).
+- On-chain, zero-party recoverable (auditor reads the indexed topic from the
+  receipt), forward-indexable (log filter on the atrHash topic).
+- Breaks any "stock protocols only" narrative for the seller side — requires
+  Integra-maintained or ecosystem-maintained contract deployments on each
+  supported chain.
+
+#### 7.3.3 Sidecar attestation
+
+After settlement, the seller (or a third party) publishes a separate attestation
+binding `contentHash` to the settlement transaction hash. The settlement itself
+is fully canonical.
+
+Example: an EAS attestation `{buyer, seller, atrHash, paymentTxHash}` indexed by
+`paymentTxHash`, published on an EAS-capable chain.
+
+**Trade-offs:**
+- Tier A — the settlement is untouched.
+- One extra transaction per payment (gas cost varies by rail).
+- Recovery is two-hop: `paymentTxHash → attestation lookup → atrHash`.
+- Not zero-party in the strict sense — if the seller fails to publish, recovery
+  depends on whoever else has observed and mirrored the binding.
+- Forward-indexable via the attestation indexer, not via the settlement ledger
+  itself.
+
+#### 7.3.4 Opaque challenge parameter
+
+`contentHash` is committed to a signed challenge structure whose fields are
+cryptographically covered by the payment authorization signature, but the
+committed value itself is not transmitted on-chain.
+
+Example: MPP's `challenge.opaque` field, covered by the `challengeHash` binding
+used by MPP-EVM Permit2 and EIP-3009 credential types.
+
+**Trade-offs:**
+- Tier A where the host protocol defines an opaque parameter inside the signed
+  envelope.
+- Cryptographic binding exists between the buyer signature and atrHash, but the
+  commitment is visible only to parties who hold the original challenge.
+- Not on-chain. Not zero-party — auditors require access to the seller's
+  challenge store (or a mirrored archive).
+- Appropriate where the dispute-resolution forum has subpoena power or direct
+  access to seller records, and on-chain visibility is not required.
+
+#### 7.3.5 Id-reuse (hashed binding)
+
+The protocol's required binding derivation (e.g. `nonce = keccak(id ‖ realm)`)
+is executed with `id = atrHash` (or another atrHash-committing construction).
+The on-chain value is a hash that cannot be inverted, but a candidate atrHash
+plus the published inputs can be verified against the on-chain value.
+
+**Trade-offs:**
+- Tier A — fully spec-compliant, no new contracts, no client changes.
+- Provides a cryptographic commitment on-chain, but enables only verification of
+  a candidate atrHash, not recovery.
+- Requires out-of-band publication of all inputs the auditor does not already
+  have (typically `realm` via `legal-context.json`).
+- Not forward-indexable by atrHash alone — the on-chain value is a hash over
+  atrHash and other inputs.
+
+#### 7.3.6 Protocol extension
+
+A new scheme, method, or registered extension is defined in the host protocol
+with atrHash-aware semantics built into its verification and settlement
+procedure.
+
+Examples: registering a custom MPP method (e.g. `lcp-evm`) with `nonce =
+keccak(id ‖ realm ‖ atrHash)`; proposing a first-class `legalContext` parameter
+in the MPP `WWW-Authenticate` header covered by the HMAC; submitting an ACP
+Specification Enhancement Proposal for a `com.integra.legal-context` extension.
+
+**Trade-offs:**
+- Tier B by definition.
+- Gives LCP first-class standing in the host protocol's extension registry,
+  with interoperable semantics across implementations that adopt the extension.
+- Fragments adoption until upstream registration lands — stock implementations
+  of the base protocol reject the extended variant.
+- Appropriate where the binding semantics are important enough to justify
+  standardization cost, or as a forward path once a pattern has been proven via
+  Tier A.
+
+#### 7.3.7 Below the bar — HTTP-layer advisory reference
+
+Not all LCP deployments need an on-chain binding. A deployment MAY expose
+`contentHash` purely at the HTTP layer — via `extra.atrHash`, `extra.legalContextUrl`,
+`X-LCP-Hash` response header, or equivalent protocol-specific fields — without
+committing the value to the settlement transaction. The seller maintains an off-chain
+`txHash → contentHash` mapping in its own records.
+
+This is not one of the six patterns above; it is the no-binding baseline. It is:
+
+- Not on-chain.
+- Not zero-party recoverable (auditors require the seller's records).
+- Not forward-indexable on any public ledger.
+- Trivial to deploy and compatible with every protocol.
+
+Appropriate where the dispute forum accepts seller-maintained records or where LCP
+adoption is informational only. Deployments that need stronger evidence should pair
+advisory HTTP metadata with one of the six on-chain binding patterns above.
+
+#### 7.3.8 How to choose
+
+The applicable patterns and the right choice depend on context:
+
+- **Evidentiary posture.** Where the dispute forum requires on-chain,
+  zero-party, independently verifiable evidence (consumer-facing arbitration,
+  cross-jurisdictional enforcement), only Native Field (where available on the
+  rail) and Overlay Contract qualify. Sidecar Attestation is adequate where the
+  forum accepts a trusted indexer as a source. Opaque Challenge and Id-Reuse
+  are adequate where the forum has direct access to seller records.
+- **Operational capacity.** Sellers with contract-deployment and audit capacity
+  can adopt Overlay Contract on any EVM rail. Sellers without that capacity are
+  limited to Native Field (where the protocol permits) or Opaque Challenge.
+- **Rail coverage.** Some rails have a Native Field with full recovery
+  properties (Tempo's TIP-20 memo, Stellar's CAP-67 mux_id); on those rails
+  Overlay Contract is unnecessary. Canonical EVM rails (MPP-EVM, x402) lack a
+  Native Field path that survives spec-compliant verification: Id-Reuse gives
+  an on-chain commitment but only verification of a candidate hash, and
+  Opaque Challenge keeps the binding off-chain. Zero-party-recoverable
+  on-chain binding on those rails therefore requires Overlay Contract or
+  Sidecar Attestation.
+- **Facilitator and client diversity.** Strategies that require cooperating
+  clients (off-canonical Native Field use, e.g. seller-controlled `extra.nonce`
+  on x402) are fragile where the seller does not control the client or
+  facilitator stack. Overlay and Sidecar are robust across facilitator and
+  client choices because they operate outside the authorization-signature
+  envelope.
+- **Standardization horizon.** Protocol Extension is a multi-month to
+  multi-year path via IETF, IANA, or protocol-specific SEP processes. Overlay,
+  Sidecar, and Native Field patterns ship immediately.
+
+The per-protocol subsections in §7.4 identify the applicable patterns for each
+rail and credential type. The trade-off analysis above applies uniformly —
+implementers should read the rail-specific guide alongside this pattern
+vocabulary.
+
+---
+
+### 7.4 Per-Protocol Integration
 
 Each protocol integration specifies:
 - The exact field to use
@@ -445,6 +672,12 @@ Each protocol integration specifies:
 #### MPP (Machine Payments Protocol)
 
 MPP is an open standard (IETF Internet-Draft, CC0), co-authored by Stripe and Tempo Labs. It enables machine-to-machine payments via HTTP 402 challenges, supporting stablecoins on Tempo, cards via Stripe, and Bitcoin via Lightning.
+
+MPP methods covered in this subsection: `tempo` charge (Native Field via TIP-20 memo),
+`evm` charge (no Native Field; Opaque / Id-Reuse / Overlay / Extension), `tempo` session
+(open design question with named candidates), and Stellar (cross-references the Stellar
+subsection below). The HTTP-layer LCP fields covered first apply to all MPP methods; the
+on-chain binding guidance further below is per-method.
 
 **Tier A — Available today: LCP fields inside the HMAC-covered `request` body.**
 
@@ -507,15 +740,93 @@ WWW-Authenticate: Payment id="abc123", realm="api.example.com",
 
 This change can be submitted upstream as a PR to the relevant MPP method specification.
 
-**On-chain binding per MPP method:** Each method's underlying chain has its own mechanism for
-tying a specific settlement transaction to an `atrHash`. These are described in the
-chain-specific subsections (see "Stellar — In-band binding via CAP-67 muxed addresses" below).
-For rails with a structured attribution field (such as Tempo's TIP-20 `Attribution`), the
-degree to which an arbitrary 32-byte ATR hash can occupy that field depends on the rail's
-attribution schema; on Tempo specifically the Attribution layout reserves internal fields
-(MPP tag, server/client fingerprints, nonce), so the content hash cannot straightforwardly
-replace it without reconciliation against the current Attribution documentation. Treat
-cross-chain on-chain binding as chain-specific.
+**On-chain binding per MPP method.** Each method's underlying chain has its own mechanism
+for tying a specific settlement transaction to an `atrHash`. The mechanism and the
+applicable §7.3 pattern depend on the method.
+
+**Tempo `charge` (`draft-tempo-charge-00`).** The request schema defines
+`methodDetails.memo` as an optional unconstrained `bytes32`. When present, the server MUST
+verify that the settled tx uses TIP-20's `transferWithMemo(to, amount, memo)` with a
+matching memo value. The TIP-20 `TransferWithMemo(from, to, amount, memo)` event emits
+`memo` as an indexed topic, so a log query can filter by memo value directly.
+
+The memo-match check applies to the `type=transaction` (pull mode) and `type=hash`
+(push mode) credential types, which settle via a real TIP-20 transfer. The `type=proof`
+credential type (EIP-712 typed-data signature for zero-amount charges only) produces no
+on-chain settlement and therefore no memo binding; LCP Level 2+ evidence on `type=proof`
+flows requires a different carrier.
+
+Setting `methodDetails.memo = atrHash` on `type=transaction` or `type=hash` is therefore
+a **Native Field** (§7.3.1) binding on Tempo: Tier A, full 32-byte on-chain commitment,
+zero-party recovery from tx hash alone (`receipt → TransferWithMemo → indexed memo →
+contentHash`), and forward-indexable (`eth_getLogs` filter on the memo topic returns
+every payment bound to those terms).
+
+*Note on the `mppx` attribution layout.* When the seller does not supply
+`methodDetails.memo`, reference MPP servers auto-generate a 32-byte memo using an SDK
+convention (a fingerprint layout combining a `keccak256("mpp")` tag, server/client
+fingerprints, and a challenge-derived nonce). This layout is an SDK convention for
+server-bound attribution, not a wire-protocol requirement: the spec-literal memo check
+accepts any 32-byte value when the seller supplies one explicitly. Earlier LCP drafts
+treated the SDK attribution layout as authoritative; that treatment was incorrect, and
+LCP implementations SHOULD use the arbitrary-memo path described above.
+
+**MPP-EVM `charge` (`draft-evm-charge-00`).** MPP-EVM defines four credential types
+(`permit2`, `authorization`, `transaction`, `hash`), none of which exposes an arbitrary
+on-chain slot for `contentHash`:
+
+- The `permit2` credential signs an EIP-712 witness with a **hardcoded** type string
+  covering only `challengeHash` (where `challengeHash = keccak(id ‖ realm)`). Extending
+  the witness schema breaks signature verification against the canonical Permit2 contract.
+- The `authorization` credential (EIP-3009) requires `nonce = challengeHash` as a server
+  MUST-verify rule. A spec-compliant verifier rejects authorizations whose nonce differs
+  from the expected derivation, so `atrHash` cannot ride in the nonce.
+- The `transaction` and `hash` credentials validate only recipient/amount on the
+  broadcast transaction — no cryptographic challenge binding and no slot for
+  `contentHash`.
+
+The applicable §7.3 patterns on MPP-EVM are therefore:
+
+- **Opaque Challenge** (§7.3.4). Place `contentHash` in `challenge.opaque` (core spec
+  §5.1.2.1.1.7). `challengeHash` commits to the full challenge including `opaque`, so a
+  verifier with the original challenge can confirm `atrHash` was committed. Not on-chain;
+  recovery requires access to the seller's challenge store.
+- **Id-Reuse** (§7.3.5). Set `challenge.id = contentHash` (or `keccak(contentHash)`). The
+  on-chain nonce becomes `keccak(contentHash ‖ realm)`. An auditor holding `realm`
+  (typically published via `legal-context.json`) can verify a candidate `contentHash`
+  against the on-chain value, but cannot recover it directly.
+- **Overlay Contract** (§7.3.2). Deploy a router per chain whose entry point accepts the
+  canonical EIP-3009 or Permit2 authorization as an inner call and emits an LCP-specific
+  event carrying `contentHash` as an indexed topic. Wire protocol stays canonical; binding
+  lives in the overlay event. On-chain, zero-party recoverable, forward-indexable.
+- **Protocol Extension** (§7.3.6). Register a new MPP method (e.g. `lcp-evm`) with
+  atrHash-aware nonce semantics (`nonce = keccak(id ‖ realm ‖ contentHash)`). Tier B;
+  available to stock MPP servers only after upstream registration.
+
+**Tempo `session` (`draft-tempo-session-00`).** Streaming payments via on-chain payment
+channels plus off-chain EIP-712 vouchers. Settlement happens in batches via
+`settle(channelId, cumulativeAmount, signature)`; individual vouchers do not surface
+on-chain, so the per-transaction memo carrier available on `charge` is not present.
+Candidate §7.3 patterns:
+
+- **Native Field variant via channel `salt`**. `channelId` is derived in part from a
+  seller-chosen `salt`; binding `salt = contentHash` (or a derivation of it) commits
+  `contentHash` to the channel identity. Recovery requires the other `channelId`
+  inputs; forward-indexability depends on whether `channelId` is indexed in the
+  channel-open event. Requires treating `contentHash` as part of channel identity,
+  which has operational implications for how often channels are re-opened.
+- **Sidecar Attestation** (§7.3.3). Emit a per-session commitment binding
+  `{channelId, contentHash}` to a separate attestation or classic on-chain record.
+  Keeps the voucher flow fully canonical.
+- **Protocol Extension** (§7.3.6). Define a session-level LCP extension in
+  `draft-tempo-session-*` with atrHash-aware voucher semantics.
+
+Session-scope LCP binding is an open design question; no single rail-native answer is
+established.
+
+For the Stellar method, see the "Stellar — In-band binding via CAP-67 muxed addresses"
+subsection below. Cross-rail on-chain binding is chain-specific; the per-method guidance
+above applies only to the methods named.
 
 #### ACP (Agentic Commerce Protocol)
 
@@ -560,7 +871,7 @@ ACP checkout responses already include a `links` array with `terms_of_use`, `pri
 
 x402 is an HTTP 402-based payment protocol created by Coinbase. The x402 Foundation was co-founded by Coinbase and Cloudflare, with Google and Visa among the Foundation's members. x402 v2 defines two forward-compatible extension points in the `PaymentRequired` response: `accepts[].extra` (per payment-requirement) and a top-level `extensions` object. Unknown keys are ignored by conforming clients.
 
-**Recommended — per-requirement `extra` block:**
+**Per-requirement `extra` block:**
 ```json
 {
   "x402Version": 2,
@@ -602,14 +913,71 @@ X-LCP-Hash: 0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069
 
 Safe on any HTTP-based rail, including x402 v1 deployments that lack the `extensions` field. Not part of the protocol's cryptographic signature; use the `accepts[].extra` block where available.
 
+**On-chain binding per x402 scheme.** The `extra` and `extensions` entries above are
+carried in HTTP messages but are not, on their own, committed to the settlement
+transaction. On-chain binding depends on the scheme and the chain.
+
+*Stellar `exact` scheme.* Stellar's CAP-67 muxed address carries an 8-byte `mux_id`
+into the Soroban `transfer` call and out to the `TransferEvent.to_muxed_id` field on
+chain. Deriving `mux_id` from `contentHash` (e.g. a keyed HMAC-derived prefix; see the
+Stellar subsection below) is a **Native Field** (§7.3.1) binding — Tier A against the
+stock Stellar SDK and publicly available facilitators, with zero-party recovery from
+the settlement tx alone.
+
+*EVM `exact` scheme.* The on-chain primitive is EIP-3009 `transferWithAuthorization`.
+The x402 v2 specification describes `authorization.nonce` as a client-generated 32-byte
+random value for replay protection, and the canonical verifier does not compare the
+signed nonce against any server-advertised value. `extra.nonce`, `extra.atrHash`, and
+similar LCP-specific `extra` keys therefore do not influence the on-chain nonce under a
+canonical verifier: a stock client generates its own random nonce and the verifier
+accepts it.
+
+The applicable §7.3 patterns on x402 EVM `exact` are:
+
+- **Native Field (off-canonical)** (§7.3.1). A cooperating client that honors a
+  seller-advertised `extra.nonce` signs an EIP-3009 authorization with
+  `authorization.nonce = contentHash`. The settled tx then emits
+  `AuthorizationUsed(indexed authorizer, indexed nonce)` with `nonce = contentHash`,
+  giving zero-party recovery and — because the nonce is indexed as topic 2 on the
+  EIP-3009 event — forward indexing via `eth_getLogs`. This requires client cooperation
+  that the canonical x402 SDK does not provide; any deployment relying on it SHOULD
+  label it as an LCP extension and SHOULD publish the extension semantics as part of a
+  named LCP profile so third-party clients can opt in.
+- **Overlay Contract** (§7.3.2). A router contract accepts the canonical EIP-3009
+  authorization as an inner call and emits an LCP-specific event carrying
+  `contentHash` as an indexed topic in the same transaction. Wire protocol and client
+  behavior remain canonical; the binding lives in the overlay event's indexed topic,
+  separate from the EIP-3009 `AuthorizationUsed` event. Tier A, zero-party recoverable,
+  forward-indexable by `contentHash` via `eth_getLogs` on the overlay event.
+- **Sidecar Attestation** (§7.3.3). The settlement tx is fully canonical; a separate
+  attestation (e.g. EAS) binds `contentHash` to the settlement tx hash. Recovery is
+  two-hop via the attestation indexer; not zero-party if the seller fails to publish.
+
+Below the §7.3 pattern bar: an **HTTP-layer advisory reference** — `extra.atrHash`,
+`extra.legalContextUrl`, or the `X-LCP-Hash` response header — is trivial to deploy but
+is not committed on-chain and not zero-party-recoverable. It creates an off-chain
+`txHash → contentHash` mapping maintained by the seller. This is not an on-chain binding
+pattern; it is the no-binding baseline, suitable only where the dispute forum accepts
+seller-maintained records or where LCP adoption is informational only.
+
+Forward-indexing note. Both on-chain options above — Native Field off-canonical and
+Overlay Contract — are forward-indexable by `contentHash` at the log layer, but via
+different events. Native Field off-canonical indexes on `AuthorizationUsed.nonce` (the
+EIP-3009 event, topic 2). Overlay Contract indexes on its own LCP event's indexed
+`contentHash` topic. The query path and the event signature differ; auditors SHOULD
+know which pattern a deployment uses before constructing a log filter.
+
 **Tier B — Proposed: first-class `legalContext` in `PAYMENT-RESPONSE` receipts.** The v2 HTTP transport defines the decoded `PAYMENT-RESPONSE` as `{success, errorReason, transaction, network, payer}` with no `extensions` field on the receipt. Adding a portable `legalContext` receipt field therefore requires an upstream spec change.
 
 #### Stellar — In-band binding via CAP-67 muxed addresses
 
-**Tier A — Available today.** Both the x402 and MPP sections above point to this subsection
-for the on-chain half of the story. The mechanism is Stellar-specific; the same pattern —
-embedding an 8-byte derivation of the ATR hash into a settlement transaction's destination —
-is achievable on any chain that exposes a comparable primitive.
+**Tier A — Available today.** This is the Stellar instantiation of the **Native Field**
+pattern (§7.3.1): an unconstrained on-chain field, carried through canonical settlement,
+emitted in an indexed position an auditor can filter on. Both the x402 and MPP sections
+above point to this subsection for the on-chain half of the story. The mechanism is
+Stellar-specific; the same pattern — embedding an 8-byte derivation of the ATR hash into
+a settlement transaction's destination — is achievable on any chain that exposes a
+comparable primitive.
 
 **The primitive.** CAP-67 ("Soroban Muxed Addresses"), activated on Stellar mainnet on
 September 3, 2025 as part of Protocol 23, allows a standard Stellar `G`-address to be
@@ -721,9 +1089,13 @@ TAP applies signatures during two interaction types: browsing (`agent-browser-au
 2. **Agentic Consumer Recognition Object** — request body containing consumer identity (JWT `idToken` with obfuscated email/phone) and contextual data (country, postal code, device), signed with the same private key and nonce as the agent signature
 3. **Agentic Payment Container** — request body containing payment data (credential hash, encrypted payload, or browsing IOU), also signed with the same key and nonce
 
-**LCP integration mechanism — request body with linked signature:**
+**LCP integration options.** Two integration points are available:
 
-TAP's body objects (Consumer Recognition, Payment Container) are each independently signed with the same private key and nonce used for the HTTP Message Signature, creating a cryptographic chain linking all components. The recommended integration follows this same pattern — include the LCP reference in the TAP request body and sign it with the same key and nonce:
+**Option 1 — request body with linked signature.** TAP's body objects (Consumer
+Recognition, Payment Container) are each independently signed with the same private key
+and nonce used for the HTTP Message Signature, creating a cryptographic chain linking
+all components. LCP can follow the same pattern — include the LCP reference in the TAP
+request body and sign it with the same key and nonce:
 
 ```json
 {
@@ -742,9 +1114,19 @@ TAP's body objects (Consumer Recognition, Payment Container) are each independen
 
 The shared `nonce` and `keyid` — signed by the same key as Consumer Recognition and Payment Container — are what join the legal-context object into TAP's signature chain. A bare `{type, value}` sibling without its own signature quartet does not inherit the chain and would be silently replaceable; any proposed integration MUST follow the same signing pattern TAP uses for its existing body objects (or register `legalContext` as a field inside one of those objects, which TAP's extension clause already permits).
 
-**Alternative — custom header in covered components:**
+**Option 2 — custom header in covered components.** Include `X-LCP-Hash` as a custom
+header. If added to the TAP signature's covered components in the `Signature-Input`
+header, it would be cryptographically bound to the agent's identity. This is simpler
+but carries only the hash, not structured legal context. Adding custom headers to TAP's
+covered components would require a coordinated extension to the TAP specification.
 
-Include `X-LCP-Hash` as a custom header. If added to the TAP signature's covered components in the `Signature-Input` header, it would be cryptographically bound to the agent's identity. This is simpler but carries only the hash, not structured legal context. Note: adding custom headers to TAP's covered components would require a coordinated extension to the TAP specification.
+**Trade-off.** Option 1 carries full structured legal context inside the signed body,
+at the cost of an additional `signature` quartet (`nonce`/`keyid`/`alg`/`signature`) to
+inherit TAP's signature chain. Option 2 is a single-header, hash-only reference with a
+smaller wire footprint, at the cost of an upstream spec change to register the covered
+header. Neither dominates the other; the choice depends on whether the deployment needs
+structured fields (jurisdiction, dispute method) at the TAP layer and whether upstream
+TAP registration is available on the required timeline.
 
 **Browsing IOU integration:** TAP's Browsing IOU mechanism (HTTP 402 deferred payment) creates a credit relationship — the merchant grants access with the expectation of later settlement. This deferred obligation is precisely the kind of temporal commitment that benefits from LCP: the IOU should reference specific terms governing the deferred payment, including what happens if settlement fails.
 
@@ -1082,7 +1464,7 @@ This standard defines the discovery mechanism and document convention. How a ser
 - EIP-712 typed data schemas for signed acceptance
 - MCP server exposing LCP tools, resources, and prompts (see Section 9)
 - **Stellar in-band binding:** a live Stellar mainnet reference implementing the CAP-67
-  muxed-address pattern described in §7.3 for both x402 and MPP rails, with the optional
+  muxed-address pattern described in §7.4 for both x402 and MPP rails, with the optional
   seller one-time anchor. Serves as the reference for Tier A integrations against stock
   `@x402/stellar` and `@stellar/mpp`. Integra will publish the source and the URL of the
   running demo as a separate release artifact.
