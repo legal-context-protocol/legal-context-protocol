@@ -24,7 +24,7 @@ One required field. Everything else is optional.
 
 ```json
 {
-  "terms": "https://example.com/terms/v3.pdf"
+  "terms": "https://example.com/terms/v3.md"
 }
 ```
 
@@ -34,8 +34,8 @@ Save as `legal-context.json` and serve at `/.well-known/legal-context.json` over
 
 ```json
 {
-  "terms": "https://example.com/terms/v3.pdf",
-  "contentHash": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"
+  "terms": "https://example.com/terms/v3.md",
+  "atrHash": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"
 }
 ```
 
@@ -43,8 +43,8 @@ Save as `legal-context.json` and serve at `/.well-known/legal-context.json` over
 
 ```json
 {
-  "terms": "https://example.com/terms/v3.pdf",
-  "contentHash": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+  "terms": "https://example.com/terms/v3.md",
+  "atrHash": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
   "acceptanceRequired": true
 }
 ```
@@ -67,38 +67,42 @@ See [`examples/level-4-full.json`](examples/level-4-full.json) for a complete co
 | Level | Name | What It Adds |
 |-------|------|-------------|
 | 1 | Informational | Terms are discoverable at a known URL |
-| 2 | Provable | A content hash proves the terms haven't changed |
+| 2 | Provable | An ATR hash proves the terms haven't changed |
 | 3 | Signed | Cryptographic proof of explicit consent |
-| 4 | Integrated | Dispute resolution, escrow, compliance hooks |
+| 4 | Integrated | Dispute resolution, pre-settlement verification, escrow, reputation, and other recourse hooks |
 
 Each level is independently valuable. A service can implement any level without implementing the others.
 
+## Buyer Policy
+
+Level 3 (signed acceptance) is bilateral: the service publishes terms, and the buyer's principal declares a policy that decides whether those terms are acceptable. A buyer policy encodes minimum trust level, acceptable jurisdictions, acceptable dispute methods, commitment caps, and signing thresholds — and gates the agent's signing key behind human review for commitments above the threshold. See [Specification §4](spec/legal-context-protocol-v1.md#4-buyer-policy) for the policy primitives, evaluation flow, and human-in-the-loop escalation.
+
 ## Protocol Integration
 
-LCP integrates with the major agentic commerce and authorization protocols in two tiers: mechanisms that work today against stock, unmodified protocols using existing extension surfaces (Tier A), and mechanisms that require upstream specification changes (Tier B). Specification §7 has the full detail:
+LCP integrates with the major agentic commerce and authorization protocols in two tiers: mechanisms that work today against stock, unmodified protocols using existing extension surfaces (Tier A), and mechanisms that require upstream specification changes (Tier B). Specification §8 and Appendix C have the full detail:
 
-- **§7.3 On-Chain Binding Patterns** defines the pattern vocabulary used below — Native Field, Overlay Contract, Sidecar Attestation, Opaque Challenge, Id-Reuse, Protocol Extension — with two evaluation axes (wire compatibility, adoption cost) and three recovery properties (on-chain, zero-party recoverable, forward-indexable).
-- **§7.4 Per-Protocol Integration** identifies the applicable patterns for each rail and credential type, with trade-off analysis.
+- **§8.3 On-Chain Binding Patterns** defines the pattern vocabulary — Native Field, Overlay Contract, Sidecar Attestation, Opaque Challenge, Id-Reuse, Protocol Extension — with two evaluation axes (wire compatibility, adoption cost) and three recovery properties (on-chain, zero-party recoverable, forward-indexable).
+- **Appendix C — Protocol Integration Illustrations** identifies the integration surfaces for each protocol and credential type, with Tier A/B labeling and steward invitations.
+
+Per-chain bindings (Stellar `mux_id`, Tempo TIP-20 memo, EVM overlay contracts) are deliberately not canonized in the spec — chain operators are invited to publish authoritative profiles in their own documentation.
 
 | Protocol | Integration surface | Tier |
 |----------|---------------------|------|
 | MPP | LCP fields inside the HMAC-covered `request.methodDetails` body | A — Available today |
 | MPP | First-class `legalContext` on `WWW-Authenticate: Payment` header or `Payment-Receipt` | B — Proposed |
-| MPP Tempo (on-chain) | `methodDetails.memo = atrHash` → TIP-20 indexed memo (Native Field) | A — Available today |
-| MPP-EVM (on-chain) | Opaque, Id-Reuse, Overlay Contract, or custom-method Protocol Extension | A / B |
-| x402 | `accepts[].extra` per-requirement block and top-level `extensions` in v2 | A — Available today |
-| x402 EVM (on-chain) | Overlay Contract, Sidecar Attestation, or off-canonical Native Field | A — Available today |
-| x402 | First-class `legalContext` field on `PAYMENT-RESPONSE` receipts | B — Proposed |
-| Stellar (in-band binding) | CAP-67 muxed destination whose `mux_id` encodes the ATR hash (Native Field) | A — Available today |
 | ACP | Freeform session metadata / `links` array | A — Available today |
 | ACP | Formal `capabilities.extensions[]` registration (SEP) | B — Proposed |
+| UCP | `links` array with `terms_of_service` type (Level 1 discovery only) | A — Available today |
 | UCP | `allOf` schema extension with reverse-domain naming | B — Proposed |
-| A2A | Task metadata (arbitrary) and Agent Card `extensions` (§4.6) | A — Available today |
-| MCP | Tool annotations and description field | A — Available today |
-| Visa TAP | Field inside an existing signed object, or a sibling with its own signature quartet | B — Proposed |
+| x402 | `accepts[].extra` per-requirement block and top-level `extensions` in v2 | A — Available today |
+| x402 | First-class `legalContext` field on `PAYMENT-RESPONSE` receipts | B — Proposed |
 | AP2 | Alongside mandates in transport metadata | A — Available today |
 | AP2 | Embedded as a field within a signed mandate | B — Proposed |
+| Visa TAP | Custom HTTP header (e.g. `X-LCP-Hash`) — advisory only, not covered by signature chain | A — Available today |
+| Visa TAP | Field inside an existing signed object, or a sibling with its own signature quartet | B — Proposed |
 | Mastercard Verifiable Intent | Custom Layer 2 constraint type (URN / reverse-domain namespaced) | A — Available today |
+| A2A | Task metadata (arbitrary) and Agent Card `extensions` (§4.6) | A — Available today |
+| MCP | Tools, resources, and prompts on an LCP-aware MCP server | A — Available today |
 
 ## Governance
 

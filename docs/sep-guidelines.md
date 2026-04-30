@@ -10,7 +10,7 @@ A Specification Enhancement Proposal (SEP) is the mechanism for proposing signif
 
 - Adding, modifying, or removing fields in `legal-context.json`
 - Changes to the well-known URI convention
-- Modifications to the content hashing specification
+- Modifications to the ATR hashing specification
 - New protocol integration patterns
 - Breaking changes that are not backward-compatible
 - Complex or controversial topics requiring community discussion

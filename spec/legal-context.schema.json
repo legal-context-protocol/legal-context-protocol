@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://www.legalcontextprotocol.org/schema/legal-context.schema.json",
   "title": "Legal Context Protocol Discovery Document",
-  "description": "Schema for /.well-known/legal-context.json — the discovery document defined by the Legal Context Protocol (LCP) v0.1.2.",
+  "description": "Schema for /.well-known/legal-context.json — the discovery document defined by the Legal Context Protocol (LCP) v0.1.31.",
   "type": "object",
   "required": ["terms"],
   "properties": {
@@ -16,14 +16,14 @@
       "type": "string",
       "description": "The format or schema of the terms document. Signals to agents whether the terms are machine-readable before fetching.",
       "examples": [
-        "agentic-transaction-record-v1",
-        "pdf",
         "markdown",
-        "html",
-        "plain"
+        "json",
+        "plain",
+        "pdf",
+        "html"
       ]
     },
-    "contentHash": {
+    "atrHash": {
       "type": "string",
       "pattern": "^0x[0-9a-f]{64}$",
       "description": "SHA-256 hash of the terms document, 0x-prefixed lowercase hex (66 characters)."
@@ -31,7 +31,7 @@
     "hashAlgorithm": {
       "type": "string",
       "default": "sha256",
-      "description": "Hash algorithm used. Defaults to 'sha256' if contentHash is present."
+      "description": "Hash algorithm used. Defaults to 'sha256' if atrHash is present."
     },
     "acceptanceRequired": {
       "type": "boolean",

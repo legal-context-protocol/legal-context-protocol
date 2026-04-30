@@ -1,7 +1,7 @@
 {
   "terms": "https://example.com/terms/v3.json",
-  "termsFormat": "agentic-transaction-record-v1",
-  "contentHash": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+  "termsFormat": "json",
+  "atrHash": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
   "acceptanceRequired": true,
   "disputeResolution": {
     "method": "AAA Commercial Arbitration Rules",
@@ -16,5 +16,5 @@
     "legal": "legal@example.com",
     "technical": "api-support@example.com"
   },
-  "api": "https://api.integraledger.net/v1/records/0xabcdef1234567890"
+  "api": "https://api.example.com/v1/records/0xabcdef1234567890"
 }

@@ -57,7 +57,7 @@ Substantial changes to the protocol specification. Examples:
 
 - Adding or removing fields in `legal-context.json`
 - Changes to the well-known URI convention
-- Modifications to the content hashing specification
+- Modifications to the ATR hashing specification
 - New protocol integration patterns
 
 See [SEP Guidelines](docs/sep-guidelines.md) for the full process.

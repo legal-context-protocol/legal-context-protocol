@@ -14,7 +14,7 @@ LCP exists to promote open, discoverable, and verifiable legal context for agent
 
 2. **Neutrality Protection:** Decisions must not privilege a specific vendor, platform, payment provider, or dispute resolution institution in a way that harms neutrality.
 
-3. **Security and Integrity:** Changes must not introduce systemic security risks or compromise the integrity guarantees (content hashing, clause verification) that the protocol provides.
+3. **Security and Integrity:** Changes must not introduce systemic security risks or compromise the integrity guarantees (ATR hashing, clause verification) that the protocol provides.
 
 4. **Protocol Integrity:** Changes must not fracture the standard or create incompatible forks.
 
@@ -136,7 +136,7 @@ The SEP lifecycle:
 
 ### Types of Changes
 
-1. **Major Changes (Require SEPs):** Any substantial, complex, or controversial change to the protocol. Examples: adding or removing fields in `legal-context.json`, changes to the well-known URI convention, modifications to the content hashing specification, new protocol integration patterns.
+1. **Major Changes (Require SEPs):** Any substantial, complex, or controversial change to the protocol. Examples: adding or removing fields in `legal-context.json`, changes to the well-known URI convention, modifications to the ATR hashing specification, new protocol integration patterns.
 
 2. **Process Changes (Require SEPs):** Adjustments to governance, decision-making rules, contributor processes, or other structural revisions.
 
@@ -249,7 +249,7 @@ A: No. The veto can only block a change, never force one through.
 
 **Q: What does a veto scenario look like in practice?**
 
-A: For illustrative purposes: imagine the TSC adopts a change requiring all LCP implementations to depend on a proprietary API controlled by a single company. This would compromise the neutrality of the protocol and could be vetoed. Or suppose a specification change replaces the open `contentHash` mechanism with a closed, vendor-specific verification system — that is a systemic integrity risk worth blocking. These are extreme scenarios, and the expectation is that most concerns like these would be resolved through normal TSC discussion well before a veto is ever considered.
+A: For illustrative purposes: imagine the TSC adopts a change requiring all LCP implementations to depend on a proprietary API controlled by a single company. This would compromise the neutrality of the protocol and could be vetoed. Or suppose a specification change replaces the open `atrHash` mechanism with a closed, vendor-specific verification system — that is a systemic integrity risk worth blocking. These are extreme scenarios, and the expectation is that most concerns like these would be resolved through normal TSC discussion well before a veto is ever considered.
 
 **Q: Can an organization hold a seat on both the TSC and a DWG?**
 
