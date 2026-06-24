@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or early-stage idea
+    url: https://github.com/legal-context-protocol/legal-context-protocol/discussions
+    about: For questions and ideas not yet ready for a SEP, start a Discussion.

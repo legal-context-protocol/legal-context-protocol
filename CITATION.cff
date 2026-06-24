@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+title: Legal Context Protocol (LCP)
+message: >-
+  If you reference the Legal Context Protocol, please cite it using the
+  metadata below.
+type: software
+abstract: >-
+  An open standard for discovering and cryptographically proving the legal
+  context — terms, consent, jurisdiction, and recourse — of agentic-commerce
+  transactions, across agent-payment protocols and settlement rails.
+authors:
+  - given-names: David
+    family-names: Fisher
+    affiliation: Integra Ledger
+  - given-names: David
+    family-names: Berger
+    affiliation: Integra Ledger
+repository-code: https://github.com/legal-context-protocol/legal-context-protocol
+url: https://legalcontextprotocol.org
+license: Apache-2.0
+keywords:
+  - legal-context-protocol
+  - agentic-commerce
+  - ai-agents
+  - standard
+  - dispute-resolution
