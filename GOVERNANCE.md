@@ -81,7 +81,7 @@ Domain Working Groups are community-driven groups focused on adapting and extend
 The following domains reflect the stakeholder landscape for legal context in agentic commerce. DWGs are not created at launch — they are formed when contributors self-organize around a domain.
 
 - **Commerce Protocols** — Integration with MPP, ACP, x402, UCP, and other agentic commerce protocols.
-- **Dispute Resolution** — dispute resolution providers, clause standardization, content-addressed clause registries, and machine-readable service catalogs.
+- **Dispute Resolution** — dispute resolution mechanism, clause standardization, content-addressed clause registries, and machine-readable service catalogs.
 - **Financial Services** — Institutional contracting, ISDA integration, structured dispute resolution frameworks, and Merkle DAG contract architectures.
 - **Cloud & Platform Services** — SLAs, multi-service terms, enterprise agreement frameworks, and platform legal architecture.
 - **Identity & Authorization** — Interaction with Visa TAP, Mastercard Verifiable Intent, AP2 mandates, and agent authorization chains.
