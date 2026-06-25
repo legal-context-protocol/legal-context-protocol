@@ -30,7 +30,7 @@ The TSC is the decision-making authority for the protocol's evolution, specifica
 
 ### Composition and Structure
 
-The TSC has up to 7 seats. Each seat is held by one organization, including Integra Ledger and the American Arbitration Association-International Centre for Dispute Resolution (AAA-ICDR).
+The TSC has up to 7 seats. Each seat is held by one organization, including Integra Ledger.
 
 Seats are filled incrementally as qualified contributors emerge.
 
@@ -69,7 +69,6 @@ Organizations interested in joining the TSC should reach out to anyone from the 
 | Seat | Organization | Representative(s) |
 |------|-------------|-------------------|
 | 1    | Integra Ledger | David Fisher |
-| 2    | AAA-ICDR | TBD |
 
 ---
 
@@ -82,7 +81,7 @@ Domain Working Groups are community-driven groups focused on adapting and extend
 The following domains reflect the stakeholder landscape for legal context in agentic commerce. DWGs are not created at launch — they are formed when contributors self-organize around a domain.
 
 - **Commerce Protocols** — Integration with MPP, ACP, x402, UCP, and other agentic commerce protocols.
-- **Dispute Resolution** — ADR providers (AAA, JAMS, ICC), clause standardization, content-addressed clause registries, and machine-readable service catalogs.
+- **Dispute Resolution** — dispute resolution providers, clause standardization, content-addressed clause registries, and machine-readable service catalogs.
 - **Financial Services** — Institutional contracting, ISDA integration, structured dispute resolution frameworks, and Merkle DAG contract architectures.
 - **Cloud & Platform Services** — SLAs, multi-service terms, enterprise agreement frameworks, and platform legal architecture.
 - **Identity & Authorization** — Interaction with Visa TAP, Mastercard Verifiable Intent, AP2 mandates, and agent authorization chains.
@@ -156,7 +155,7 @@ LCP exists at the intersection of technology and law. Integra Ledger brings the 
 
 - Appoint and remove TSC members based on the published membership criteria.
 - Ensure the protocol's long-term coherence, security, and alignment with its founding mission.
-- Each holds one seat on the TSC with the same voting rights as any other member.
+- Integra Ledger holds one seat on the TSC with the same voting rights as any other member.
 
 ### Governance Evolution
 

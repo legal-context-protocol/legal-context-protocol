@@ -305,7 +305,7 @@ A buyer policy typically declares some combination of the following:
 
 - **Required level** — the minimum trust level (1, 2, 3, or 4) the buyer requires from a service before transacting. A buyer requiring a minimum of Level 2 will not transact with services that publish only Level 1 terms.
 - **Acceptable jurisdictions** — the legal frameworks the buyer's principal is willing to transact under. Terms specifying a jurisdiction outside this set are rejected.
-- **Acceptable dispute resolution methods** — the institutional arbitration bodies, mediation services, or recourse mechanisms the buyer will accept (for example, Commercial Arbitration Rules, ICC, JAMS, named online dispute resolution providers). Terms specifying a method outside this set are rejected or escalated.
+- **Acceptable dispute resolution methods** — the institutional arbitration bodies, mediation services, or recourse mechanisms the buyer will accept. Terms specifying a method outside this set are rejected or escalated.
 - **Commitment caps** — maximum monetary value, contract duration, recurring obligation, or other quantitative limit on what the agent may bind the principal to.
 - **Signing thresholds** — the commitment level above which Level 3 signed acceptance requires human review before the agent's key produces a signature.
 - **Required dispute resolution** — for high-value or high-trust contexts, a policy may require that any service the buyer transacts with publish a Level 4 `disputeResolution` clause from the buyer's accepted set.
@@ -904,11 +904,11 @@ allowed_signing_keys: [agent-key-2026-A]
   "atrHash": "0x9b2a4d6f8e3c1a0b5f8e1c4d7a2f9b3e6c0a5d8f2b7e4c1a6d9f3e0c5a8b2d7e",
   "acceptanceRequired": true,
   "disputeResolution": {
-    "method": "Commercial Arbitration Rules",
+    "method": "Dispute Resolution Service Rules",
     "jurisdiction": "New York, USA",
     "contact": "disputes@service.example.com",
     "clauseId": "sha256:0x4f1e8a3c...",
-    "source": "https://adr.example.org/clauses/commercial-arbitration",
+    "source": "https://adr.example.org/clauses/arbitration-rules",
     "catalog": "https://adr.example.org/.well-known/dispute-services.json"
   },
   "returns": "https://api.service.example.com/api/returns",
@@ -926,9 +926,8 @@ allowed_signing_keys: [agent-key-2026-A]
 minimum_level: 4
 acceptable_jurisdictions: [USA, EU, UK]
 acceptable_dispute_methods:
-  - Commercial Arbitration Rules
-  - ICC Rules
-  - JAMS Streamlined Arbitration Rules
+  - Dispute Resolution Service Rules
+  - Mediation Rules
 require_returns_process: true
 require_legal_contact: true
 require_human_approval_above_usd: 10000.00
@@ -936,7 +935,7 @@ require_human_approval_above_usd: 10000.00
 
 **The transaction flow.** The flow is the same as Level 3, with two additional checks before signing:
 
-1. The policy engine evaluates `disputeResolution.method` against the whitelist. `"Commercial Arbitration Rules"` is permitted.
+1. The policy engine evaluates `disputeResolution.method` against the whitelist. `"Dispute Resolution Service Rules"` is permitted.
 2. The policy engine confirms a `returns` URL is present and a `contact.legal` is present.
 
 After enrollment, the agent retains the top-level `api` endpoint and the `returns` URL in its records, alongside the signed acceptance and the terms document.
@@ -1259,7 +1258,7 @@ Because the `extensions` object is also carried on the `SettlementResponse`, LCP
     { "type": "mandate.payment.amount_range", "value": "..." },
     { "type": "<reverse-domain>.lcp-terms-hash", "value": "0x7f83b165..." },
     { "type": "<reverse-domain>.lcp-jurisdiction", "value": "USA" },
-    { "type": "<reverse-domain>.lcp-dispute-method", "value": "Commercial Arbitration Rules" }
+    { "type": "<reverse-domain>.lcp-dispute-method", "value": "Dispute Resolution Service Rules" }
   ]
 }
 ```
