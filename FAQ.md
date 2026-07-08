@@ -29,7 +29,7 @@ Yes — open-source `@legalcontext/*` packages and a live demo. LCP is designed 
 
 **LCP (Legal Context Protocol)** — an open standard for publishing and cryptographically proving the legal terms of a transaction, for AI-agent commerce. One required field; four optional trust levels.
 
-**ATR (Agentic Transaction Receipt)** — the terms document itself (the standalone, downloadable file). The thing that gets hashed.
+**ATR (Agentic Transaction Record)** — the terms document itself (the standalone, downloadable file). The thing that gets hashed.
 
 **`atrHash`** — the SHA-256 hash of the terms bytes (`0x` + 64 hex). The tamper-evident fingerprint binding terms ↔ seller ↔ buyer's transaction.
 

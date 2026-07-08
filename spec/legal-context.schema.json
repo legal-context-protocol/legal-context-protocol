@@ -26,7 +26,7 @@
     "atrHash": {
       "type": "string",
       "pattern": "^0x[0-9a-f]{64}$",
-      "description": "SHA-256 hash of the Agentic Transaction Receipt (ATR) — the terms document itself. 0x-prefixed lowercase hex (66 characters)."
+      "description": "SHA-256 hash of the Agentic Transaction Record (ATR) — the terms document itself. 0x-prefixed lowercase hex (66 characters)."
     },
     "acceptanceRequired": {
       "type": "boolean",
