@@ -10,7 +10,7 @@ package has no dependency on the ActaSeal product.
 from __future__ import annotations
 
 import hashlib
-from typing import Optional
+from typing import Callable, Optional
 
 from ._canonical_json import canonical_json_hash
 from .protocols import PolicyReceipt
@@ -20,6 +20,32 @@ LCP_SPEC = "legal-context-protocol v1 (legal-context.schema.json)"
 
 LCP_FINGERPRINT_MISMATCH = "LCP_FINGERPRINT_MISMATCH"
 LCP_BINDING_MISMATCH = "LCP_BINDING_MISMATCH"
+# Reported by external review (2026-08-26): the two checks above only
+# ever prove *internal* consistency -- never authenticity. A forged
+# receipt.signature, a record built from swapped terms bytes, or a
+# hand-tampered atrHash with a recomputed record_fingerprint all
+# previously verified clean. Closed by the two checks below.
+LCP_RECEIPT_SIGNATURE_INVALID = "LCP_RECEIPT_SIGNATURE_INVALID"
+LCP_TERMS_HASH_MISMATCH = "LCP_TERMS_HASH_MISMATCH"
+# Not a mismatch -- an explicit "not checked" state (same discipline as
+# ConformanceResult.unconstrained in the ActaSeal product this profile
+# originated from): a caller that omits terms_document gets this named
+# marker instead of a silent, indistinguishable pass.
+LCP_TERMS_BINDING_UNVERIFIED = "LCP_TERMS_BINDING_UNVERIFIED"
+
+# Design gaps this profile does not close, stated rather than hidden.
+# Out of scope for this pass per external review 2026-08-26: these are
+# design questions about what a bound mandate/scope claim actually
+# proves, not bugs in the terms-fingerprint authentication this pass
+# fixed.
+NOT_COVERED = (
+    "mandate_hash proves a mandate was BOUND to this transaction, not "
+    "what it authorized, who granted it, whether it had expired, or "
+    "whether this action fell inside its scope.",
+    "scope_conformance_headline is free text supplied by the manifest "
+    "producer: it ASSERTS conformance, it does not EVIDENCE it. A "
+    "verifier must not treat this field as proof of in-scope action.",
+)
 
 # LCP discovery-document fields (spec/legal-context.schema.json). Only
 # `terms` and `atrHash` are derivable from this adapter's inputs; the rest
@@ -96,6 +122,7 @@ def build_lcp_record(
         "legalContext": legal_context,
         "transactionBinding": _binding(receipt, manifest),
         "unmapped": unmapped,
+        "not_covered": list(NOT_COVERED),
     }
     record["record_fingerprint"] = canonical_json_hash(record)
     return record
@@ -106,10 +133,40 @@ def verify_lcp_record(
     *,
     receipt: PolicyReceipt,
     manifest: dict,
+    verify_receipt_signature: Callable[[PolicyReceipt], bool],
+    terms_document: Optional[bytes] = None,
 ) -> list[str]:
     """Re-derive, never trust: recompute the record fingerprint over the
-    record body and re-derive the transaction binding from the presented
-    receipt + manifest. Empty list = verified; every divergence is named."""
+    record body, re-derive the transaction binding from the presented
+    receipt + manifest, cryptographically verify the receipt signature
+    itself, and (when terms_document is supplied) re-hash the real terms
+    bytes against the record's claimed atrHash. Empty list = verified;
+    every divergence -- or unchecked gap -- is named.
+
+    Internal consistency (fingerprint/binding re-derivation) alone proves
+    a record is self-consistent, never that it was authentic: a forged
+    receipt.signature, or a record built over swapped/tampered terms
+    bytes, can be made perfectly self-consistent.
+
+    verify_receipt_signature is a caller-supplied predicate that takes
+    `receipt` and returns whether its signature cryptographically
+    verifies. This package is deliberately dependency-free and
+    receipt-type-agnostic (PolicyReceipt is a *structural* protocol, not
+    a concrete class), so it cannot embed a signature-verification stack
+    of its own without either adding a hard crypto dependency or hard-
+    coding one algorithm -- that would make it a SECOND, divergent
+    signature check next to whatever real implementation the caller's
+    receipt system already has (in ActaSeal's own case,
+    actaseal.receipt.verify_receipt, the same path
+    actaseal/dispute/offline_verifier.py's verify_receipt() uses).
+    Dependency injection here means callers always reuse their own one
+    true signature-verification path; this package never re-implements
+    it.
+
+    The claimed atrHash is authenticated by re-hashing terms_document --
+    ground truth the caller must independently obtain (e.g. by fetching
+    legalContext.terms) -- rather than trusted from the record body.
+    """
     failures: list[str] = []
 
     body = {key: value for key, value in record.items() if key != "record_fingerprint"}
@@ -129,5 +186,29 @@ def verify_lcp_record(
                 f"{LCP_BINDING_MISMATCH}:{field}: record has "
                 f"{recorded_binding.get(field)!r}, receipt/manifest derive "
                 f"{expected_binding.get(field)!r}"
+            )
+
+    if not verify_receipt_signature(receipt):
+        failures.append(
+            f"{LCP_RECEIPT_SIGNATURE_INVALID}: receipt signature does not "
+            f"cryptographically verify"
+        )
+
+    claimed_atr_hash = (record.get("legalContext") or {}).get("atrHash")
+    if claimed_atr_hash is not None:
+        if terms_document is not None:
+            recomputed = atr_hash(terms_document)
+            if claimed_atr_hash != recomputed:
+                failures.append(
+                    f"{LCP_TERMS_HASH_MISMATCH}: record claims atrHash "
+                    f"{claimed_atr_hash!r}, the presented terms_document "
+                    f"bytes hash to {recomputed!r}"
+                )
+        else:
+            failures.append(
+                f"{LCP_TERMS_BINDING_UNVERIFIED}: record claims atrHash "
+                f"{claimed_atr_hash!r} but no terms_document bytes were "
+                f"presented to verify_lcp_record, so the terms binding "
+                f"was not checked -- this is NOT a pass"
             )
     return failures

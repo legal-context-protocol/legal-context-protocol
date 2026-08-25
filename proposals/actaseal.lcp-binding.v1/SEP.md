@@ -58,11 +58,16 @@ Normative requirements:
 
 - `atrHash` MUST be computed from the actual terms document bytes
   presented to `build_lcp_record` (`0x` + lowercase SHA-256 hex). It MUST
-  NOT be accepted from an untrusted party and copied through.
+  NOT be accepted from an untrusted party and copied through. An
+  implementation that accepts a caller-supplied `atrHash` and copies it
+  into the record is NON-CONFORMANT with this profile, even if the
+  resulting record verifies: the record carries no field recording how
+  the hash was obtained, so a downstream verifier cannot distinguish a
+  computed hash from a passed-through one.
 - Every LCP discovery-document field (`spec/legal-context.schema.json`)
   this profile cannot derive from its own inputs (`disputeResolution`,
-  `returns`, `contact`, `api`, and `terms`/`atrHash`/`termsFormat` when not
-  supplied by the caller) MUST appear in `unmapped` as
+  `returns`, `contact`, `api`, and `terms`/`atrHash`/`termsFormat` when no
+  terms document is presented) MUST appear in `unmapped` as
   `UNMAPPED:<field>` -- never guessed, never defaulted to a plausible
   value.
 - `record_fingerprint` MUST be the canonical-JSON SHA-256 hash of the
@@ -70,9 +75,23 @@ Normative requirements:
 - Verification (`verify_lcp_record`) MUST re-derive the fingerprint and
   the transaction binding from the presented receipt and manifest, and
   compare -- it MUST NOT trust a stored fingerprint or binding at face
-  value. An empty failure list means verified; every mismatch is
-  individually named (`LCP_FINGERPRINT_MISMATCH`,
-  `LCP_BINDING_MISMATCH:<field>`).
+  value. Re-derivation alone proves only that a record is internally
+  self-consistent, never that it is authentic, so verification MUST
+  additionally:
+  - cryptographically verify the receipt's own signature; a record whose
+    receipt signature does not verify MUST fail with
+    `LCP_RECEIPT_SIGNATURE_INVALID`;
+  - when the terms document bytes are presented, re-hash them and compare
+    against the record's claimed `atrHash`, failing with
+    `LCP_TERMS_HASH_MISMATCH` on divergence.
+  When the terms bytes are NOT presented, the terms binding is unchecked,
+  and verification MUST say so by returning
+  `LCP_TERMS_BINDING_UNVERIFIED` rather than an empty list. An unchecked
+  binding and a verified one MUST NOT be indistinguishable to a caller.
+  An empty failure list means verified; every mismatch or unchecked gap
+  is individually named (`LCP_FINGERPRINT_MISMATCH`,
+  `LCP_BINDING_MISMATCH:<field>`, `LCP_RECEIPT_SIGNATURE_INVALID`,
+  `LCP_TERMS_HASH_MISMATCH`, `LCP_TERMS_BINDING_UNVERIFIED`).
 - This profile performs no network I/O. Fetching
   `/.well-known/legal-context.json` and the terms document is the
   caller's responsibility.

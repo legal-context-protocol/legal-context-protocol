@@ -53,10 +53,26 @@ record = build_lcp_record(
     terms_format="markdown",
 )
 
-# Later, re-derive and check for any divergence:
-failures = verify_lcp_record(record, receipt=receipt, manifest=manifest)
-assert failures == []  # empty list = verified; every mismatch is named
+# Later, re-derive and check for any divergence. verify_receipt_signature
+# is YOUR receipt system's own real signature check -- this package has
+# no crypto dependency of its own and never re-implements one; it must
+# be given the same verification path your system already trusts (in
+# ActaSeal's case, actaseal.receipt.verify_receipt). terms_document is
+# the real terms bytes, independently obtained (e.g. by fetching
+# legalContext.terms yourself) -- never trust a document the record
+# merely claims to be bound to.
+failures = verify_lcp_record(
+    record,
+    receipt=receipt,
+    manifest=manifest,
+    verify_receipt_signature=lambda r: my_verify_receipt_signature(r, public_key),
+    terms_document=terms_bytes,
+)
+assert failures == []  # empty list = verified; every mismatch -- or unchecked gap -- is named
 ```
+
+Omitting `terms_document` from `verify_lcp_record` does not mean "pass": if the record claims an `atrHash`, verification returns a named
+`LCP_TERMS_BINDING_UNVERIFIED` entry instead of an empty list, so silence and pass never look alike.
 
 ## What this package does NOT do
 
@@ -66,7 +82,30 @@ assert failures == []  # empty list = verified; every mismatch is named
   minimal structural shape it needs (`protocols.PolicyReceipt`).
 - It does not implement LCP's dispute-resolution, returns, contact, or
   API discovery fields -- those are surfaced as `UNMAPPED:<field>`
-  unless the caller supplies them.
+  unless the caller supplies them (as plain metadata, e.g. a URL or
+  contact string -- see the `atrHash` note below for the one field this
+  does NOT apply to).
+
+`atrHash` is the one exception to "the caller can supply a field to
+avoid UNMAPPED": it is **only ever computed** by this profile from
+`terms_document` bytes you supply, never accepted pre-computed. A
+caller-supplied `atr_hash=` passthrough is not a conformant variant of
+this profile and will not be added -- LCP's own spec requires that
+`atrHash` "MUST NOT be accepted from an untrusted party and copied
+through", and a hash accepted on faith from the caller is exactly that.
+There is deliberately no third code path here beyond "computed from
+bytes" or "UNMAPPED"; if that reads as looser in older prose or in
+other implementers' summaries of this profile, this paragraph is the
+normative correction. (A record produced by this profile also does not
+carry a field recording *how* its `atrHash` was obtained -- a verifier
+trusts the profile implementation itself to enforce this rule, the same
+way it trusts any other library not to lie about what it computed.
+Adding such a provenance field was considered and rejected for this
+pass: it would only push the trust question down one level, since a
+non-conformant fork could set `"atrHash_provenance": "computed"` just
+as easily as it could add a passthrough parameter -- provenance in the
+record does not substitute for a downstream verifier pinning which
+profile *implementation*, not just which profile *name*, it trusts.)
 
 ## Development
 
