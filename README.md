@@ -93,26 +93,30 @@ Per-chain bindings (Stellar `mux_id`, Tempo TIP-20 memo, EVM overlay contracts) 
 
 | Protocol | Integration surface | Tier |
 |----------|---------------------|------|
-| MPP | LCP fields inside the HMAC-protected `request.methodDetails` body (the MAC uses a server-held secret, so it does not commit the seller to a relying party) | A — Available today |
+| MPP | LCP fields inside the challenge `request.methodDetails` body | A — Available today |
 | MPP | Method-specific `legalContext` receipt field | A — Available today |
-| MPP | First-class `legalContext` in the `WWW-Authenticate: Payment` challenge (under the HMAC canonicalization) | B — Proposed |
-| ACP | `legalContext` in checkout-session `metadata` (the `links` `type` enum is closed) | A — Available today |
-| ACP | Formal `legalContext` extension registration | B — Proposed |
-| UCP | `links` array with `terms_of_service` type (Level 1 discovery only) | A — Available today |
-| UCP | `allOf` schema extension with reverse-domain naming | B — Proposed |
-| x402 | `accepts[].extra` and top-level `extensions` on the challenge (v2) | A — Available today |
+| MPP | First-class `legalcontext` in the `WWW-Authenticate: Payment` challenge — parameter names MUST be lowercase — brought under the challenge binding | B — Proposed |
+| ACP | `legalContext` in checkout-session `metadata` (the `links` `type` enum is closed at eight values) | A — Available today |
+| ACP | A core extension with the field pre-declared on `CheckoutSessionBase`, which is `additionalProperties: false` | B — Proposed |
+| UCP | `links` array with `terms_of_service` — discovery only, no hash | A — Available today |
+| UCP | `policies[]` in the base checkout schema — per-transaction; platforms MUST tolerate unknown types | A — Available today |
+| UCP | A capability in UCP's own `dev.ucp.*` namespace | B — Proposed |
+| x402 | `accepts[].extra` and the top-level `extensions` map on the challenge (v2) | A — Available today |
 | x402 | `legalContext` in the `extensions` map on the `SettlementResponse` receipt | A — Available today |
-| x402 | Registered canonical `legalContext` extension identifier + schema | B — Proposed |
-| AP2 | Alongside mandates in transport-layer metadata | A — Available today |
-| AP2 | Embedded inside a signed mandate — a custom constraint in an open mandate fails schema validation (`constraints` is a closed `anyOf`) | B — Proposed |
-| Visa TAP | Custom HTTP header (e.g. `X-LCP-Hash`) — advisory, outside the signature chain | A — Available today |
-| Visa TAP | Field inside a signed body object, or a sibling with its own `nonce`/`keyid`/`alg`/`signature` quartet | B — Proposed |
+| x402 | A reference inside the signed Offer/Receipt artifacts — the EIP-712 types are closed | B — Proposed |
+| AP2 | Alongside mandates in transport-layer metadata — AP2 defines no transport of its own | A — Available today |
+| AP2 | A registered type via AP2's Mandate Constraints extension point (the mandate's `constraints` array is a closed `anyOf`) | B — Proposed |
+| Visa TAP | Custom HTTP header (e.g. `X-LCP-Hash`) — advisory, outside the signature; covered components are `@authority` and `@path` | A — Available today |
+| Visa TAP | A field inside a signed body object, or a sibling with its own `nonce`/`keyid`/`alg`/`signature` quartet | B — Proposed |
 | Mastercard Verifiable Intent | *No Tier A carrier* — verifiers MUST reject open mandates with unknown constraint types, and Immediate-mode credentials carry no `constraints` array | — |
 | Mastercard Verifiable Intent | Registered LCP-aware Layer 2 constraint types | B — Proposed |
-| A2A | Task metadata and Agent Card `capabilities.extensions[]` | A — Available today |
-| A2A | Formal A2A extension registration | B — Proposed |
-| MCP | Tools, resources, and prompts on an LCP-aware MCP server | A — Available today |
-| MCP | Standardized LCP MCP server schema | B — Proposed |
+| A2A | Task metadata, plus an Agent Card extension the client activates with an `A2A-Extensions` header | A — Available today |
+| A2A | Official-tier extension in the A2A project namespace | B — Proposed |
+| MCP | Tools, resources and prompts on an LCP-aware MCP server | A — Available today |
+| MCP | A negotiated `{vendor-prefix}/{extension-name}` extension (2026-07-28 revision) | A — Available today |
+| MCP | Official status via MCP's Extensions Track | B — Proposed |
+| ACK | `legalContext` in the ACK-Pay receipt credential's `metadata` — covered by the issuer's proof | A — Available today |
+| ACK | Catena Labs documenting a conventional key | B — Proposed |
 
 ## Learn more
 
