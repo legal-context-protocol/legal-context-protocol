@@ -4,7 +4,9 @@
   "title": "Legal Context Protocol Discovery Document",
   "description": "Schema for /.well-known/legal-context.json — the discovery document defined by the Legal Context Protocol (LCP) v1.0.",
   "type": "object",
-  "required": ["terms"],
+  "required": [
+    "terms"
+  ],
   "properties": {
     "terms": {
       "type": "string",
@@ -26,7 +28,9 @@
     "atrHash": {
       "type": "string",
       "pattern": "^0x[0-9a-fA-F]{64}$",
-      "description": "SHA-256 hash of the Agentic Transaction Record (ATR) — the terms document itself. 0x-prefixed hex (66 characters); lowercase emission is recommended, and comparison is on the decoded bytes."
+      "description": "SHA-256 hash of the Agentic Transaction Record (ATR) — the terms document itself. 0x-prefixed hex (66 characters); lowercase emission is recommended, and comparison is on the decoded bytes.",
+      "minLength": 66,
+      "maxLength": 66
     },
     "acceptanceRequired": {
       "type": "boolean",
@@ -52,7 +56,9 @@
         "clauseId": {
           "type": "string",
           "pattern": "^sha256:0x[0-9a-fA-F]{64}$",
-          "description": "Content-addressed identifier of the dispute resolution clause. Format: sha256:0x followed by 64 hex characters."
+          "description": "Content-addressed identifier of the dispute resolution clause. Format: sha256:0x followed by 64 hex characters.",
+          "minLength": 73,
+          "maxLength": 73
         },
         "source": {
           "type": "string",
