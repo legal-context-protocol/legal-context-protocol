@@ -8,7 +8,7 @@ A quick reference for the Legal Context Protocol (LCP). For the full normative t
 No. Level 1 and Level 2 work on any web server serving a JSON file. Blockchains only come in when you bind the terms hash to an on-chain settlement.
 
 **Is this "code is law"? Are you replacing lawyers or courts?**
-The opposite. LCP's premise is that code *can't* be law — an agreement needs identity, consent, jurisdiction, and recourse, which code doesn't provide. LCP connects agent transactions *to* the existing legal system (including dispute-resolution institutions such as the American Arbitration Association), rather than replacing it.
+The opposite. LCP's premise is that code *can't* be law — an agreement needs identity, consent, jurisdiction, and recourse, which code doesn't provide. LCP connects agent transactions *to* the existing legal system — courts, arbitral institutions, and the contract doctrine that already governs commerce — rather than replacing it.
 
 **What stops someone changing the terms after the fact?**
 The `atrHash` — a SHA-256 hash of the terms. If the document changes by one byte, the hash changes, and the mismatch is detectable by either party. The served terms file must be byte-identical every time.
@@ -17,13 +17,13 @@ The `atrHash` — a SHA-256 hash of the terms. If the document changes by one by
 A buyer's accept/reject decision should be made over the **structured fields** of `legal-context.json` (jurisdiction, level, amount), never the free-text terms body. Human escalation binds approval to the exact bytes' hash.
 
 **Who controls LCP? Is it a single-vendor land-grab?**
-LCP is an open standard (IANA-registered well-known URI, Apache-2.0), co-stewarded by **Integra Ledger** and the **American Arbitration Association**. By design, no central index, registry, or facilitator is operated by any one party — every "hosted" capability points to the adopter's own instance.
+LCP is an open standard (Apache-2.0), co-stewarded by **Integra Ledger** and the **American Arbitration Association-International Centre for Dispute Resolution (AAA-ICDR)**. Registration of the well-known URI with IANA is sought but has not been filed; conformance does not depend on it. By design, no central index, registry, or facilitator is operated by any one party — every "hosted" capability points to the adopter's own instance.
 
 **How is this different from just posting a Terms of Service?**
 Three things a `/terms` link doesn't give you: a **standard location** (so agents can find it), a **cryptographic proof** (so it can't be quietly changed), and a **signature + recourse path** (so it's enforceable).
 
 **Is there a reference implementation?**
-Yes — open-source `@legalcontext/*` packages and a live demo. LCP is designed for many implementations in any language, kept honest by language-neutral conformance vectors.
+Yes. One open-source implementation is published on npm under the `@integraledger/lcp-*` scope by Integra Ledger, a co-steward. LCP endorses no implementation and privileges no vendor: it is designed for many implementations in any language, kept honest by language-neutral conformance vectors.
 
 ## Glossary
 
@@ -49,7 +49,7 @@ Yes — open-source `@legalcontext/*` packages and a live demo. LCP is designed 
 
 **Rail** — a settlement ledger or channel (EVM, Stellar, Hedera, Sui, Solana, Aptos, XRPL, Cardano, Canton, and traditional rails).
 
-**Settlement vs. reference-carrier protocols** — *settlement* protocols (x402, MPP, AP2, ACK) move value; *reference-carrier* protocols (ACP, UCP, Visa-TAP, Mastercard-VI, A2A, MCP) carry the LCP reference so agents become LCP-aware.
+**Settlement vs. reference-carrier protocols** — *settlement* protocols (x402, MPP, ACK) move value; AP2 defines mandates and explicitly no transport, so it travels inside whichever protocol carries it; *reference-carrier* protocols (ACP, UCP, Visa-TAP, Mastercard-VI, A2A, MCP) carry the LCP reference so agents become LCP-aware.
 
 **Conformance vector** — a language-neutral JSON test case (fixed inputs → exact expected output) that lets any implementation, in any language, prove byte-compatibility.
 

@@ -15,6 +15,8 @@ authors:
   - given-names: David
     family-names: Berger
     affiliation: Integra Ledger
+version: "1.0"
+date-released: 2026-06-24
 repository-code: https://github.com/legal-context-protocol/legal-context-protocol
 url: https://legalcontextprotocol.org
 license: Apache-2.0

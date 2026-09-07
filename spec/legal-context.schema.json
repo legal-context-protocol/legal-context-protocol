@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://www.legalcontextprotocol.org/schema/legal-context.schema.json",
+  "$id": "https://legalcontextprotocol.org/schema/legal-context.schema.json",
   "title": "Legal Context Protocol Discovery Document",
   "description": "Schema for /.well-known/legal-context.json — the discovery document defined by the Legal Context Protocol (LCP) v1.0.",
   "type": "object",
@@ -25,8 +25,8 @@
     },
     "atrHash": {
       "type": "string",
-      "pattern": "^0x[0-9a-f]{64}$",
-      "description": "SHA-256 hash of the Agentic Transaction Record (ATR) — the terms document itself. 0x-prefixed lowercase hex (66 characters)."
+      "pattern": "^0x[0-9a-fA-F]{64}$",
+      "description": "SHA-256 hash of the Agentic Transaction Record (ATR) — the terms document itself. 0x-prefixed hex (66 characters); lowercase emission is recommended, and comparison is on the decoded bytes."
     },
     "acceptanceRequired": {
       "type": "boolean",
@@ -51,8 +51,8 @@
         },
         "clauseId": {
           "type": "string",
-          "pattern": "^sha256:0x[0-9a-f]{64}$",
-          "description": "Content-addressed identifier of the dispute resolution clause. Format: sha256:0x<hex>."
+          "pattern": "^sha256:0x[0-9a-fA-F]{64}$",
+          "description": "Content-addressed identifier of the dispute resolution clause. Format: sha256:0x followed by 64 hex characters."
         },
         "source": {
           "type": "string",

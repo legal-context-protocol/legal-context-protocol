@@ -65,7 +65,7 @@ See [`examples/level-4-full.json`](examples/level-4-full.json) for a complete co
 - **Full specification:** [`spec/legal-context-protocol-v1.md`](spec/legal-context-protocol-v1.md)
 - **JSON Schema:** [`spec/legal-context.schema.json`](spec/legal-context.schema.json)
 - **Examples:** [`examples/`](examples/)
-- **Website:** [www.legalcontextprotocol.org](https://www.legalcontextprotocol.org)
+- **Website:** [legalcontextprotocol.org](https://legalcontextprotocol.org)
 
 ## Four Levels of Trust
 
@@ -93,7 +93,7 @@ Per-chain bindings (Stellar `mux_id`, Tempo TIP-20 memo, EVM overlay contracts) 
 
 | Protocol | Integration surface | Tier |
 |----------|---------------------|------|
-| MPP | LCP fields inside the HMAC-covered `request.methodDetails` body | A — Available today |
+| MPP | LCP fields inside the HMAC-protected `request.methodDetails` body (the MAC uses a server-held secret, so it does not commit the seller to a relying party) | A — Available today |
 | MPP | Method-specific `legalContext` receipt field | A — Available today |
 | MPP | First-class `legalContext` in the `WWW-Authenticate: Payment` challenge (under the HMAC canonicalization) | B — Proposed |
 | ACP | `legalContext` in checkout-session `metadata` (the `links` `type` enum is closed) | A — Available today |
@@ -104,10 +104,10 @@ Per-chain bindings (Stellar `mux_id`, Tempo TIP-20 memo, EVM overlay contracts) 
 | x402 | `legalContext` in the `extensions` map on the `SettlementResponse` receipt | A — Available today |
 | x402 | Registered canonical `legalContext` extension identifier + schema | B — Proposed |
 | AP2 | Alongside mandates in transport-layer metadata | A — Available today |
-| AP2 | Embedded inside a signed mandate | B — Proposed |
+| AP2 | Embedded inside a signed mandate — a custom constraint in an open mandate fails schema validation (`constraints` is a closed `anyOf`) | B — Proposed |
 | Visa TAP | Custom HTTP header (e.g. `X-LCP-Hash`) — advisory, outside the signature chain | A — Available today |
-| Visa TAP | Field inside a signed body object, or a sibling with its own signature quartet | B — Proposed |
-| Mastercard Verifiable Intent | Custom Layer 2 constraint type (URN / reverse-domain) | A — Available today |
+| Visa TAP | Field inside a signed body object, or a sibling with its own `nonce`/`keyid`/`alg`/`signature` quartet | B — Proposed |
+| Mastercard Verifiable Intent | *No Tier A carrier* — verifiers MUST reject open mandates with unknown constraint types, and Immediate-mode credentials carry no `constraints` array | — |
 | Mastercard Verifiable Intent | Registered LCP-aware Layer 2 constraint types | B — Proposed |
 | A2A | Task metadata and Agent Card `capabilities.extensions[]` | A — Available today |
 | A2A | Formal A2A extension registration | B — Proposed |

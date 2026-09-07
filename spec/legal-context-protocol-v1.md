@@ -117,9 +117,9 @@ The file MUST be served via standard HTTP(S) `GET`. The server SHOULD include a 
     "method": "Dispute Resolution Service Rules",
     "jurisdiction": "New York, USA",
     "contact": "disputes@example.com",
-    "clauseId": "sha256:0x<hex>",
-    "source": "https://www.{dispute_resolution_service}.org/clauses/commercial-arbitration",
-    "catalog": "https://www.{dispute_resolution_service}.org/.well-known/dispute-services.json"
+    "clauseId": "sha256:0xc2eb26d28ff4e229ff35917bd53339d82c1b30ec69435572a8872a4d7609c1dd",
+    "source": "https://adr.example.org/clauses/dispute-resolution-service-rules",
+    "catalog": "https://adr.example.org/.well-known/dispute-services.json"
   },
   "returns": "https://example.com/api/returns",
   "contact": {
@@ -139,7 +139,7 @@ The file MUST be served via standard HTTP(S) `GET`. The server SHOULD include a 
 | `disputeResolution.method` | string | OPTIONAL | The dispute resolution method (e.g., "Dispute Resolution Service Rules"). |
 | `disputeResolution.jurisdiction` | string | OPTIONAL | Governing jurisdiction. |
 | `disputeResolution.contact` | string | OPTIONAL | Contact for dispute filing. |
-| `disputeResolution.clauseId` | string | OPTIONAL | Content-addressed identifier of the dispute resolution clause. Format: `sha256:0x<hex>`. When present, the clause is verifiable — any party can retrieve the text and confirm it matches the hash. |
+| `disputeResolution.clauseId` | string | OPTIONAL | Content-addressed identifier of the dispute resolution clause. Format: `sha256:0x` followed by 64 hex characters. When present, the clause is verifiable — any party can retrieve the text and confirm it matches the hash. |
 | `disputeResolution.source` | string | OPTIONAL | URL where the dispute resolution clause text can be retrieved. Any resolvable URI (HTTPS, IPFS, Arweave, etc.). |
 | `disputeResolution.catalog` | string | OPTIONAL | URL of the dispute resolution provider's service catalog. When present, agents can browse offerings, parameters, and constraints, and generate customized clause specifications programmatically. |
 | `returns` | string | OPTIONAL | URL of a returns or claims API/process. |
@@ -195,9 +195,9 @@ When `acceptanceRequired` is `true`, the counterparty must digitally sign the te
     "method": "Dispute Resolution Service Rules",
     "jurisdiction": "New York, USA",
     "contact": "disputes@example.com",
-    "clauseId": "sha256:0x<hex>",
-    "source": "https://www.{dispute_resolution_service}.org/clauses/commercial-arbitration",
-    "catalog": "https://www.{dispute_resolution_service}.org/.well-known/dispute-services.json"
+    "clauseId": "sha256:0xc2eb26d28ff4e229ff35917bd53339d82c1b30ec69435572a8872a4d7609c1dd",
+    "source": "https://adr.example.org/clauses/dispute-resolution-service-rules",
+    "catalog": "https://adr.example.org/.well-known/dispute-services.json"
   },
   "returns": "https://example.com/api/returns",
   "contact": {
@@ -684,15 +684,19 @@ Concrete shapes of LCP-aware tools, resources, and prompts are illustrated in Ap
 
 ## 11. IANA Considerations
 
-This specification requests the registration of a well-known URI per [RFC 8615]:
+This specification **requests** the registration of a well-known URI per [RFC 8615]. As of the date of this
+document no entry for `legal-context.json` exists in the IANA Well-Known URIs registry; the table below states
+the registration sought, not one that has been granted.
 
 | Field | Value |
 |-------|-------|
 | URI suffix | `legal-context.json` |
 | Change controller | LCP Technical Steering Committee |
 | Specification document | This document |
-| Status | Provisional |
-| Related information | Provides legal context discovery for agentic commerce. Complements `/.well-known/ucp` (UCP) and `/.well-known/agent-card.json` (A2A). |
+| Status | Intended — provisional registration sought; not yet filed |
+| Related information | Provides legal context discovery for agentic commerce. Complements `/.well-known/agent-card.json` (A2A), which is registered permanent with the Linux Foundation as change controller. |
+
+Registration is not a precondition for conformance.
 
 ---
 
@@ -768,7 +772,7 @@ The previous subsections concern threats to or via the publishing service. This 
 - Google, "Universal Commerce Protocol", version 2026-04-08, April 2026.
 - Google, "Agent Payments Protocol (AP2)", v0.2, April 2026. (Donated to the FIDO Alliance for community governance, April 2026.)
 - Google, "Agent-to-Agent Protocol (A2A)", v1.0, March 2026 (current released revision v1.0.1, May 2026). (Donated to Linux Foundation June 2025; v1.0 released March 2026.)
-- Anthropic, "Model Context Protocol", spec version 2025-11-25. (A 2026-07-28 revision is in Release Candidate as of this writing and is scheduled to become the latest final revision on that date.)
+- Model Context Protocol, spec version 2026-07-28. (Stewarded under the Linux Foundation; published July 28, 2026.)
 - Visa, "Trusted Agent Protocol", October 2025.
 - Mastercard, "Verifiable Intent", v0.1-draft, February 18, 2026 (field schemas updated April 2026; contributed to the FIDO Alliance for community governance, April 2026).
 - Coinbase / x402 Foundation (Linux Foundation), "x402 Protocol", v2, December 2025. (Protocol contributed to the x402 Foundation under the Linux Foundation; Technical Charter March 2026.)
@@ -907,8 +911,8 @@ allowed_signing_keys: [agent-key-2026-A]
     "method": "Dispute Resolution Service Rules",
     "jurisdiction": "New York, USA",
     "contact": "disputes@service.example.com",
-    "clauseId": "sha256:0x4f1e8a3c...",
-    "source": "https://adr.example.org/clauses/arbitration-rules",
+    "clauseId": "sha256:0xc2eb26d28ff4e229ff35917bd53339d82c1b30ec69435572a8872a4d7609c1dd",
+    "source": "https://adr.example.org/clauses/dispute-resolution-service-rules",
     "catalog": "https://adr.example.org/.well-known/dispute-services.json"
   },
   "returns": "https://api.service.example.com/api/returns",
@@ -1106,9 +1110,9 @@ For each protocol, the illustration covers (a) what the protocol is, (b) integra
 
 ### C.1 MPP (Machine Payments Protocol)
 
-**What it is.** A specification family. The core HTTP authentication scheme is an IETF Internet-Draft (`draft-ryan-httpauth-payment-01`). A growing family of per-method specifications — Card, EVM, Lightning, Solana, Stellar, Stripe, Tempo, and Hedera — together with a parent `draft-payment-intent-charge-00`, a service-discovery draft (`draft-payment-discovery-00`), and a JSON-RPC + MCP transport binding are published at paymentauth.org. MPP is in production via Stripe (PaymentIntents API, currently a preview-gated API version), Visa (cards), Lightspark (Lightning), and Tempo (TIP-20). The core scheme uses HMAC-SHA256 over a fixed seven-slot canonicalization, with method-specific request bodies and method-specific receipt extensions.
+**What it is.** A specification family. The core HTTP authentication scheme carries two published identities: `draft-httpauth-payment-00` at paymentauth.org and in the family's repository, and `draft-ryan-httpauth-payment` on the IETF datatracker (latest revision `-01`, March 2026). It is an **individual submission** — not a working-group document and not endorsed by the IETF. A family of per-method specifications — Card, EVM, Hedera, Lightning, NEAR Intents, Solana, Stellar, Stripe, Tempo and USDC — together with a parent `draft-payment-intent-charge-00`, a service-discovery draft (`draft-payment-discovery-00`), and a JSON-RPC + MCP transport binding are published at paymentauth.org. MPP is in production via Stripe (PaymentIntents API, currently a preview-gated API version), Visa (cards), Lightspark (Lightning), and Tempo (TIP-20). The core scheme uses HMAC-SHA256 over a fixed seven-slot canonicalization, with method-specific request bodies and method-specific receipt extensions.
 
-**Tier A — Available today.** LCP fields ride inside the HMAC-protected `request` body — typically inside `methodDetails` — that accompanies the 402 challenge. Each method specification defines its own `methodDetails` schema, so the exact placement is method-specific. The host MAC commits the seller to the advertised values:
+**Tier A — Available today.** LCP fields ride inside the HMAC-protected `request` body — typically inside `methodDetails` — that accompanies the 402 challenge. Each method specification defines its own `methodDetails` schema, so the exact placement is method-specific:
 
 ```json
 {
@@ -1118,7 +1122,7 @@ For each protocol, the illustration covers (a) what the protocol is, (b) integra
   "methodDetails": {
     "network": "...",
     "atrHash": "0x7f83b165...",
-    "legalContextUrl": "https://example.com/.well-known/legal-context.json"
+    "legalContextUrl": "https://example.com/terms/v3.md"
   }
 }
 ```
@@ -1187,7 +1191,7 @@ A method-specific `legalContext` receipt field is also Tier A: the core spec exp
 
 ### C.4 x402
 
-**What it is.** An HTTP-402-based payment protocol, originated by Coinbase and now stewarded by the x402 Foundation under the Linux Foundation (Technical Charter March 2026). Version 2 defines forward-compatible extension points: a per-requirement `accepts[].extra` object and a top-level `extensions` object, the latter carried on the `PaymentRequired` challenge, the `PaymentPayload`, **and** the `SettlementResponse` (the receipt). Each entry in the `extensions` map is keyed by an extension identifier and carries `info` (the extension's data) and `schema` (a JSON Schema for that data). Clients echo server-advertised extensions and MAY append to but MUST NOT delete or overwrite them.
+**What it is.** An HTTP-402-based payment protocol, originated by Coinbase and now stewarded by the x402 Foundation under the Linux Foundation (Technical Charter March 2026). Version 2 defines forward-compatible extension points: a per-requirement `accepts[].extra` object and a top-level `extensions` object, the latter carried on the `PaymentRequired` challenge, the `PaymentPayload`, **and** the `SettlementResponse` (the receipt). Each entry in the `extensions` map is keyed by an extension identifier and carries `info` (the extension's data) and `schema` (a JSON Schema for that data). Servers advertise extensions in `PaymentRequired` and clients echo them in `PaymentPayload`; the host states the preservation rule in lower case and about the `info` payload rather than the map — the client must include at least the info received, and may append but cannot delete or overwrite existing info.
 
 **Tier A — Available today.** LCP fields ride inside `accepts[].extra` or the top-level `extensions` map:
 
@@ -1199,7 +1203,7 @@ A method-specific `legalContext` receipt field is also Tier A: the core spec exp
     "network": "...",
     "extra": {
       "atrHash": "0x7f83b165...",
-      "legalContextUrl": "https://example.com/.well-known/legal-context.json"
+      "legalContextUrl": "https://example.com/terms/v3.md"
     }
   }],
   "extensions": {
@@ -1213,7 +1217,7 @@ A method-specific `legalContext` receipt field is also Tier A: the core spec exp
 
 A custom response header (e.g. `X-LCP-Hash`) is also viable on any HTTP-based rail, including v1 deployments that lack the `extensions` field.
 
-Because the `extensions` object is also carried on the `SettlementResponse`, LCP can bind at **receipt/execution time**, not only at the proposal phase. The merged Offer-and-Receipt Extension defines a server-signed receipt (EIP-712 or JWS) returned in the settlement response, into which an `atrHash` or `legalContext` reference can be carried — giving the buyer a signed, integrity-bound artifact confirming the terms in force at settlement. This is Tier A today, with one caveat: the extension's forward-compatibility guidance treats unknown payload fields as unsupported rather than interpreted, so an in-payload reference rides verifier pass-through until a typed slot is standardized (Tier B below).
+Because the `extensions` object is also carried on the `SettlementResponse`, LCP can bind at **receipt/execution time**, not only at the proposal phase. The Offer and Receipt Extension defines server-signed artifacts (EIP-712 or JWS), which would be the natural home for a legal-context reference — and that path is **not available today**. Its EIP-712 `Offer` and `Receipt` types are closed structures with no free-form member, and the extension states that any change to its canonical types is a breaking change requiring explicit versioning; a reference added to an EIP-712 payload changes the type hash and fails verification against stock implementations. Carrying LCP inside a signed x402 artifact is Tier B.
 
 **Tier B — Forward work.** Registering a canonical `legalContext` extension identifier — with a published `schema` — once x402's canonical extension architecture is standardized, rather than relying on an ad-hoc key in the `extensions` map, would give parsers standardized handling across implementations. This is a standardization step, not a protocol change: the carrier already exists on both the proposal and the receipt.
 
@@ -1229,7 +1233,7 @@ Because the `extensions` object is also carried on the `SettlementResponse`, LCP
 
 **Tier B — Forward work.** Embedding LCP inside the AP2 mandate itself — so the legal context travels through the mandate chain alongside the consumer's authorization — requires an upstream extension to the mandate schema.
 
-**Conceptual relationship.** AP2 mandates capture *what was authorized*; LCP captures *what terms govern the authorization*. The two are complementary and travel together in a complete record. For Checkout Mandates in their Open stage (delegated authorization before cart finalization), the natural-language intent can be paired with machine-readable LCP constraints describing the legal framework within which the agent may act — extending the agent's authorization scope from financial constraints to legal constraints.
+**Conceptual relationship.** AP2 mandates capture *what was authorized*; LCP captures *what terms govern the authorization*. The two are complementary and travel together in a complete record. Pairing a natural-language intent with machine-readable legal constraints is the shape worth aiming at, and it requires the upstream work above. It cannot be done by writing an unregistered constraint into an open mandate: the mandate's `constraints` array is a closed `anyOf`, so a custom type fails schema validation before any verifier policy applies.
 
 **Steward invitation.** The AP2 stewards at the FIDO Alliance are invited to publish guidance on LCP placement in transport-layer metadata and to consider an extension that allows LCP references to travel inside mandates themselves.
 
@@ -1237,7 +1241,7 @@ Because the `extensions` object is also carried on the `SettlementResponse`, LCP
 
 **What it is.** A framework for agent-initiated transactions, built on HTTP Message Signatures [RFC 9421]. Uses a three-signature model establishing agent identity, consumer identity, and payment authorization. Two body objects — the Agentic Consumer Recognition Object and the Agentic Payment Container — each carry their own signature made with the same private key as the HTTP message signature and signing the same `nonce` present in that signature; a nonce mismatch invalidates the binding even when the object's own signature verifies.
 
-**Tier B — Forward work.** A clean integration point for an LCP reference is either (a) inside one of the existing signed body objects (which the spec's extension clause permits), or (b) as a sibling object with its own `nonce`/`kid`/`alg`/`signature` quartet that mirrors the existing objects' signature pattern. Both paths require coordination. A bare `{ type, value }` sibling without its own signature quartet does not inherit the signature chain and would be silently replaceable.
+**Tier B — Forward work.** A clean integration point for an LCP reference is either (a) inside one of the existing signed body objects (which the spec's extension clause permits), or (b) as a sibling object with its own `nonce`/`keyid`/`alg`/`signature` quartet that mirrors the existing objects' signature pattern — note `keyid`, not `kid`, per [RFC 9421]. Both paths require coordination. A bare `{ type, value }` sibling without its own signature quartet does not inherit the signature chain and would be silently replaceable.
 
 **Tier A — Available today.** A custom HTTP header (e.g. `X-LCP-Hash`) carrying `atrHash` is available without coordination. To be cryptographically bound to the agent's identity, the header must be added to the `Signature-Input` covered components — itself a coordinated extension.
 
@@ -1249,7 +1253,13 @@ Because the `extensions` object is also carried on the `SettlementResponse`, LCP
 
 **What it is.** An open-source cryptographic framework for consumer authorization in agent-initiated transactions, co-developed by Mastercard and Google and designed to work with AP2. Mastercard contributed it to the FIDO Alliance for community governance in April 2026 — the same announcement in which Google donated AP2 (see §C.5) — with standardization continuing in the FIDO Alliance Payments Technical Working Group. Uses an SD-JWT credential format with up to three layers: Layer 1 (Identity), Layer 2 (Intent — user-signed authorization with constraints), Layer 3 (Action — agent-signed execution record). It defines two modes: Immediate mode uses two layers (L1 + L2, with no agent delegation); Autonomous mode adds Layer 3, which itself splits into L3a (network-facing payment mandate) and L3b (merchant-facing checkout mandate). Layer 2 registers eight constraint types that verifiers MUST support — `mandate.checkout.allowed_merchants`, `mandate.checkout.line_items`, `mandate.payment.allowed_payees`, `mandate.payment.amount_range`, `mandate.payment.budget`, `mandate.payment.recurrence`, `mandate.payment.agent_recurrence`, and `mandate.payment.reference` — and explicitly permits implementations to define custom types using URN or reverse-domain naming.
 
-**Tier A — Available today.** LCP can register a custom Layer 2 constraint carrying `atrHash`, jurisdiction, and dispute method. The custom constraint is included in the consumer's Layer 2 credential alongside the registered constraints, signed by the user's device key, and carried through the mandate chain:
+**Tier B — there is no Tier A carrier.** An unregistered LCP constraint type has nowhere to sit where it is
+both carried and evaluated: the credentials that carry a `constraints` array are the **open** mandates, and the
+specification states that regardless of strictness mode, verifiers MUST reject open mandates containing unknown
+constraint types; the credentials that would tolerate an unknown type under a permissive verifier are the
+Immediate-mode ones, and they carry no `constraints` array at all. A deployment MUST NOT write an unregistered
+legal-context constraint into a mandate and expect it to travel. The shape below is what a *registered* type
+would look like. The custom constraint is included in the consumer's Layer 2 credential alongside the registered constraints, signed by the user's device key, and carried through the mandate chain:
 
 ```json
 {
@@ -1263,7 +1273,7 @@ Because the `extensions` object is also carried on the `SettlementResponse`, LCP
 }
 ```
 
-The custom constraint inherits Layer 2's signature, integrating LCP into the consumer authorization chain without upstream protocol change.
+Registration is what makes this work: Verifiable Intent requires implementations to support registered constraint types, so registering converts legal context from unusable to mandatory-to-evaluate.
 
 **Tier B — Forward work.** Standardizing LCP-aware constraint types as registered Layer 2 types (rather than custom URN-named types) would give parsers standardized handling across implementations.
 
@@ -1375,7 +1385,7 @@ Tool-level annotations such as `destructiveHint` and `openWorldHint` signal that
 | Dispute resolution service catalog | **Level 4** | No | No | No | No | No | No | No | No | No | No |
 | Payment processing | No | Yes | Yes | Yes | Yes | Yes | Via Visa | Via MC | No | No | No |
 | Checkout lifecycle | No | No | Yes | Yes | No | No | No | No | No | No | No |
-| Agent identity | No | No | Partial | Partial | No | Partial | **Yes** | **Yes** | No | Partial | No |
+| Agent identity | No | No | Partial | Partial | No | Partial | **Yes** | **Yes** | Partial | Partial | No |
 | Consumer authorization | No | No | No | Partial | No | **Yes** | **Yes** | **Yes** | **Yes** | No | No |
 | Agent-to-agent communication | No | No | No | No | No | No | No | No | No | **Yes** | No |
 | Agent-to-tool connectivity | No | No | No | No | No | No | No | No | No | No | **Yes** |
@@ -1426,11 +1436,16 @@ LCP Level 3 produces a cryptographic acceptance record: the buyer's key signs `a
 
 LCP Level 4 adds dispute resolution, jurisdiction, identity, and recourse hooks to the published legal context. This addresses the doctrinal questions of forum selection, choice of law, and remedy availability.
 
-**Forum selection and choice of law.** The `disputeResolution.method` and `disputeResolution.jurisdiction` fields, when accepted by both parties (Level 3), constitute mutual selection of forum and governing law. U.S. doctrine generally enforces forum selection clauses where they are fundamentally fair, not the product of fraud or overreach, and reasonably communicated (*Carnival Cruise Lines, Inc. v. Shute*, 499 U.S. 585 (1991), applying the *M/S Bremen v. Zapata Off-Shore Co.*, 407 U.S. 1 (1972) framework to non-negotiated form contracts). EU doctrine similarly enforces choice-of-court agreements meeting specified formality requirements (Brussels I Recast, Regulation (EU) 1215/2012, Article 25).
+**Forum selection and choice of law.** What effects the selection is the forum-selection and choice-of-law
+clause *in the terms document*, accepted by both parties at Level 3. The Level 3 signature runs to `atrHash`,
+which fixes the terms document and nothing else; the `disputeResolution.method` and
+`disputeResolution.jurisdiction` fields are not covered by that signature. A deployment that publishes a forum
+or choice of law only in `legal-context.json`, and omits it from the terms document, produces a signed record
+containing no selection at all. U.S. doctrine generally enforces forum selection clauses where they are fundamentally fair, not the product of fraud or overreach, and reasonably communicated (*Carnival Cruise Lines, Inc. v. Shute*, 499 U.S. 585 (1991), applying the *M/S Bremen v. Zapata Off-Shore Co.*, 407 U.S. 1 (1972) framework to non-negotiated form contracts). EU doctrine similarly enforces choice-of-court agreements meeting specified formality requirements (Brussels I Recast, Regulation (EU) 1215/2012, Article 25).
 
-**Verifiable dispute clauses.** The `disputeResolution.clauseId` field provides a content-addressed identifier for the dispute resolution clause. A dispute forum can independently retrieve the clause text and confirm it matches the hash, eliminating disputes about which version of the clause applied.
+**Verifiable dispute clauses.** The `disputeResolution.clauseId` field provides a content-addressed identifier for the dispute resolution clause. A dispute forum can independently retrieve the clause text and confirm it matches the hash. It is still published rather than accepted, and it settles which clause text applied only where the terms document incorporates that clause.
 
-**Recourse mechanisms.** The `api`, `returns`, and `contact.legal` fields establish operational paths for recourse. Under both U.S. and EU consumer-protection doctrine, the availability of effective recourse is a factor in the enforceability of online terms; Level 4 makes those paths discoverable and binding.
+**Recourse mechanisms.** The `api`, `returns`, and `contact.legal` fields establish operational paths for recourse. Under both U.S. and EU consumer-protection doctrine, the availability of effective recourse is a factor in the enforceability of online terms; Level 4 makes those paths discoverable and, where the terms document commits the service to them, binding through that document.
 
 **Combined evidentiary package.** A Level 4 transaction produces:
 
